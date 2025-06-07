@@ -1,0 +1,131 @@
+'use client';
+
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { useAuthStore } from "@/store/authStore";
+import {
+  LayoutDashboard,
+  Bus,
+  Users,
+  UserRoundCog,
+  FileText,
+  Wrench,
+  Package,
+  TrendingUp,
+  LogOut,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const adminNavItems = [
+  { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+  { name: "Fleet Management", href: "/admin/fleet", icon: Bus },
+  { name: "User Management", href: "/admin/users", icon: Users },
+  { name: "Reports", href: "/admin/report", icon: FileText },
+  { name: "Maintenance", href: "/admin/maintenance", icon: Wrench },
+  { name: "Inventory", href: "/admin/inventory", icon: Package },
+  { name: "Analytics", href: "/admin/analytics", icon: TrendingUp },
+  { name: "Roles", href: "/admin/roles", icon: UserRoundCog },
+];
+
+const conductorNavItems = [
+  { name: "Dashboard", href: "/conductor", icon: LayoutDashboard },
+  { name: "My Assignments", href: "/conductor/assignments", icon: Bus },
+  { name: "Reports", href: "/conductor/report", icon: FileText },
+];
+const garageNavItems = [
+  { name: "Dashboard", href: "/garage", icon: LayoutDashboard },
+  { name: "Maintenance Records", href: "/garage/maintenance", icon: Wrench },
+];
+
+export function Sidebar() {
+  const pathname = usePathname();
+  const { user, logout } = useAuthStore();
+  
+  // Safe check for user roles with proper fallbacks
+  const userRoles = Array.isArray(user?.roles) ? user.roles : [];
+  const isGarageAttendant = userRoles.some(role => role?.name === 'Garage Attendant');
+  // Fixed: Check role objects by their 'name' property
+  const isAdmin = userRoles.some(role => 
+    role?.name === 'admin' || 
+    role?.name === 'System Admin' || 
+    role?.name === 'Company Admin'
+  ) || user?.is_superuser === true;
+  
+  const navItems = isAdmin? adminNavItems
+  : isGarageAttendant
+    ? garageNavItems
+    : conductorNavItems;
+
+  // Don't render if user is not loaded yet
+  if (!user) {
+    return (
+      <div className="flex h-full w-64 flex-col border-r bg-background">
+        <div className="flex h-16 items-center border-b px-6">
+          <h2 className="text-lg font-semibold">Bus Management</h2>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full w-64 flex-col border-r bg-background">
+      <div className="flex h-16 items-center border-b px-6">
+        <h2 className="text-lg font-semibold">Bus Management</h2>
+      </div>
+      
+      <nav className="flex-1 space-y-1 p-4">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
+          
+          return (
+            <Link key={item.name} href={item.href}>
+              <Button
+                variant={isActive ? "secondary" : "ghost"}
+                className={cn(
+                  "w-full justify-start",
+                  isActive && "bg-secondary"
+                )}
+              >
+                <Icon className="mr-2 h-4 w-4" />
+                {item.name}
+              </Button>
+            </Link>
+          );
+        })}
+      </nav>
+      
+      <div className="border-t p-4">
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <span className="text-sm font-medium">
+              {user?.first_name?.[0] || user?.username?.[0] || 'U'}
+            </span>
+          </div>
+          <div>
+            <p className="text-sm font-medium">
+              {user?.first_name}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {userRoles[0]?.name || 'User'}
+            </p>
+          </div>
+        </div>
+        <Button 
+          variant="ghost" 
+          className="w-full justify-start" 
+          onClick={logout}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Logout
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export default Sidebar;
