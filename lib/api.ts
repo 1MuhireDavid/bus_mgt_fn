@@ -31,6 +31,132 @@ api.interceptors.response.use(
   }
 );
 
+// Enhanced Bus API with detailed reporting
+export const enhancedBusAPI = {
+  // Get enhanced bus detail with expenses for a specific date
+  getBusDetailWithExpenses: (busId: string, date?: string) => {
+    const params = date ? `?date=${date}` : '';
+    return api.get(`/fleet/buses/${busId}/detail_with_expenses/${params}`);
+  },
+
+  // Get comprehensive single bus report
+  getSingleBusReport: (busId: string, params?: {
+    start_date?: string;
+    end_date?: string;
+    format?: 'json' | 'csv';
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.start_date) searchParams.append('start_date', params.start_date);
+    if (params?.end_date) searchParams.append('end_date', params.end_date);
+    if (params?.format) searchParams.append('format', params.format);
+    
+    const queryString = searchParams.toString();
+    const url = `/reports/buses/${busId}/detailed-report/${queryString ? `?${queryString}` : ''}`;
+    
+    if (params?.format === 'csv') {
+      return api.get(url, { responseType: 'blob' });
+    }
+    return api.get(url);
+  },
+
+  // Download single bus report
+  downloadBusReport: async (busId: string, format: 'json' | 'csv', params?: {
+    start_date?: string;
+    end_date?: string;
+  }) => {
+    try {
+      const response = await enhancedBusAPI.getSingleBusReport(busId, {
+        ...params,
+        format
+      });
+      
+      // Create download
+      const blob = new Blob([response.data], {
+        type: format === 'csv' ? 'text/csv' : 'application/json'
+      });
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Get bus info for filename
+      const busResponse = await api.get(`/fleet/buses/${busId}/`);
+      const plateNumber = busResponse.data.plate_number || busId;
+      const timestamp = new Date().toISOString().slice(0, 10);
+      
+      link.download = `bus_report_${plateNumber}_${timestamp}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Download failed:', error);
+      return { success: false, error };
+    }
+  }
+};
+
+// Enhanced Dashboard API with new bus park information
+export const enhancedDashboardAPI = {
+  // Enhanced bus expense report with bus park information
+  getBusExpenseReport: (startDate: string, endDate: string, busId?: string) => {
+    const params = new URLSearchParams({
+      start_date: startDate,
+      end_date: endDate
+    });
+    
+    if (busId) {
+      params.append('bus_id', busId);
+    }
+    
+    return api.get(`/reports/bus-expenses/?${params.toString()}`);
+  },
+
+  // Export enhanced bus expense report
+  exportBusExpenseReport: async (
+    startDate: string, 
+    endDate: string, 
+    format: 'csv' | 'json',
+    busId?: string
+  ) => {
+    try {
+      const params = new URLSearchParams({
+        start_date: startDate,
+        end_date: endDate,
+        format: format
+      });
+      
+      if (busId) {
+        params.append('bus_id', busId);
+      }
+      
+      const response = await api.get(`/reports/bus-expenses/export/?${params.toString()}`, {
+        responseType: 'blob'
+      });
+      
+      // Create download
+      const blob = new Blob([response.data], {
+        type: format === 'csv' ? 'text/csv' : 'application/json'
+      });
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `bus_expense_report_${startDate}_to_${endDate}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      cument.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Export failed:', error);
+      return { success: false, error };
+    }
+  }
+};
 export const authAPI = {
   login: (credentials: { username: string; password: string }) =>
     api.post('/auth/login/', credentials),
@@ -44,6 +170,11 @@ export const busAPI = {
   getById: (id: string) => api.get(`/fleet/buses/${id}/`),
   updateStatus: (id: string, status: string) =>
     api.post(`/fleet/buses/${id}/set_status/`, { status }),
+  getBusParks: () => api.get('/fleet/bus-parks/'),
+  getBusDetailWithExpenses: (busId: string, date?: string) => {
+  const params = date ? `?date=${date}` : '';
+  return api.get(`/fleet/buses/${busId}/detail_with_expenses/${params}`);
+},
 };
 
 // Add new API endpoints for drivers
@@ -69,6 +200,7 @@ export const assignmentAPI = {
   create: (data: any) => api.post('/operations/assignments/', data),
   update: (id: string, data: any) => api.patch(`/operations/assignments/${id}/`, data),
   delete: (id: string) => api.delete(`/operations/assignments/${id}/`),
+  complete: (id: string, data: any) => api.post(`/operations/assignments/${id}/complete/`, data),
 };
 
 export const dashboardAPI = {
@@ -339,14 +471,14 @@ export const fuelStationAPI = {
 
 
 export const maintenanceGarageAPI = {
-  getAll: () => api.get('/operations/maintenance-garages/'),
-  getById: (id: string) => api.get(`/operations/maintenance-garages/${id}/`),
-  create: (data: any) => api.post('/operations/maintenance-garages/', data),
-  update: (id: string, data: any) => api.patch(`/operations/maintenance-garages/${id}/`, data),
-  delete: (id: string) => api.delete(`/operations/maintenance-garages/${id}/`),
+  getAll: () => api.get('/maintenance-garages/'),
+  getById: (id: string) => api.get(`/maintenance-garages/${id}/`),
+  create: (data: any) => api.post('/maintenance-garages/', data),
+  update: (id: string, data: any) => api.patch(`/maintenance-garages/${id}/`, data),
+  delete: (id: string) => api.delete(`/maintenance-garages/${id}/`),
   
   // Get attendants at this garage
-  getAttendants: (id: string) => api.get(`/operations/maintenance-garages/${id}/attendants/`),
+  getAttendants: (id: string) => api.get(`/maintenance-garages/${id}/attendants/`),
 };
 
 // Updated Car Wash API (now uses normalized structure)

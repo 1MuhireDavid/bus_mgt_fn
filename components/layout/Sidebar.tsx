@@ -15,6 +15,11 @@ import {
   LogOut,
   Building2,
   Activity,
+  Fuel,
+  Droplets,
+  Calendar,
+  BarChart3,
+  Settings,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -29,7 +34,10 @@ const adminNavItems = [
   { name: "Company Management", href: "/admin/companies", icon: Building2 },
   { name: "Maintenance", href: "/admin/maintenance", icon: Wrench },
   { name: "Inventory", href: "/admin/inventory", icon: Package },
-  { name: "Analytics", href: "/admin/analytics", icon: TrendingUp },
+  { name: "Garage", href: "/admin/garage", icon: TrendingUp },
+  { name: "Car washes", href: "/admin/car-wash-stations", icon: Droplets },
+  { name: "Fuel Stations", href: "/admin/fuel-stations", icon: Fuel },
+  { name: "Bus Parks", href: "/admin/bus-parks", icon: Bus },
   { name: "Roles", href: "/admin/roles", icon: UserRoundCog },
 ];
 
@@ -38,9 +46,29 @@ const conductorNavItems = [
   { name: "My Assignments", href: "/conductor/assignments", icon: Bus },
   { name: "Reports", href: "/conductor/report", icon: FileText },
 ];
+
 const garageNavItems = [
   { name: "Dashboard", href: "/garage", icon: LayoutDashboard },
   { name: "Maintenance Records", href: "/garage/maintenance", icon: Wrench },
+  { name: "Service History", href: "/garage/history", icon: FileText },
+  { name: "Parts Inventory", href: "/garage/inventory", icon: Package },
+  { name: "Reports", href: "/garage/reports", icon: BarChart3 },
+];
+
+const fuelAttendantNavItems = [
+  { name: "Dashboard", href: "/fuel_attendant", icon: LayoutDashboard },
+  { name: "Fuel Records", href: "/fuel_attendant/records", icon: Fuel },
+  { name: "Daily Reports", href: "/fuel_attendant/reports", icon: FileText },
+  { name: "Fuel Statistics", href: "/fuel_attendant/statistics", icon: BarChart3 },
+  { name: "Station Management", href: "/fuel_attendant/station", icon: Settings },
+];
+
+const carWashNavItems = [
+  { name: "Dashboard", href: "/car_wash", icon: LayoutDashboard },
+  { name: "Wash Records", href: "/car_wash/records", icon: Droplets },
+  { name: "Service Schedule", href: "/car_wash/schedule", icon: Calendar },
+  { name: "Daily Reports", href: "/car_wash/reports", icon: FileText },
+  { name: "Performance", href: "/car_wash/performance", icon: TrendingUp },
 ];
 
 export function Sidebar() {
@@ -48,12 +76,11 @@ export function Sidebar() {
   const router = useRouter();
   const { user, logout, initializeAuth, isAuthenticated } = useAuthStore();
 
-    // Initialize auth state on component mount
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
 
-   useEffect(() => {
+  useEffect(() => {
     const token = localStorage.getItem('access_token');
     if (!token && !user) {
       router.push('/login');
@@ -63,19 +90,41 @@ export function Sidebar() {
   
   // Safe check for user roles with proper fallbacks
   const userRoles = Array.isArray(user?.roles) ? user.roles : [];
-  const isGarageAttendant = userRoles.some(role => role?.name === 'Garage Attendant');
+  const userRoleNames = Array.isArray(user?.user_roles) ? user.user_roles : [];
 
-
-  const isAdmin = userRoles.some(role => 
-    role?.name === 'admin' || 
-    role?.name === 'System Admin' || 
-    role?.name === 'Company Admin'
+  // Check for different attendant types
+  const isAdmin = userRoleNames.some(role => 
+    role === 'admin' || 
+    role === 'System Admin' || 
+    role === 'Company Admin'
   ) || user?.is_superuser === true;
-  
-  const navItems = isAdmin? adminNavItems
-  : isGarageAttendant
-    ? garageNavItems
-    : conductorNavItems;
+
+  const isFuelAttendant = userRoleNames.includes('Fuel Attendant');
+  const isCarWashAttendant = userRoleNames.includes('Car Wash Attendant');
+  const isGarageAttendant = userRoleNames.includes('Garage Attendant') || 
+                           userRoleNames.includes('Maintenance Attendant');
+  const isConductor = userRoleNames.includes('Conductor');
+
+  // Determine navigation items based on role priority
+  let navItems = conductorNavItems;
+  let dashboardTitle = "Bus Management";
+
+  if (isAdmin) {
+    navItems = adminNavItems;
+    dashboardTitle = "Admin Portal";
+  } else if (isFuelAttendant) {
+    navItems = fuelAttendantNavItems;
+    dashboardTitle = "Fuel Station";
+  } else if (isCarWashAttendant) {
+    navItems = carWashNavItems;
+    dashboardTitle = "Car Wash Station";
+  } else if (isGarageAttendant) {
+    navItems = garageNavItems;
+    dashboardTitle = "Garage Station";
+  } else if (isConductor) {
+    navItems = conductorNavItems;
+    dashboardTitle = "Conductor Portal";
+  }
 
   // Don't render if user is not loaded yet
   if (!isAuthenticated || !user) {
@@ -91,10 +140,20 @@ export function Sidebar() {
     );
   }
 
+  // Get user's primary role for display
+  const getPrimaryRole = () => {
+    if (isAdmin) return "Administrator";
+    if (isFuelAttendant) return "Fuel Attendant";
+    if (isCarWashAttendant) return "Car Wash Attendant";
+    if (isGarageAttendant) return "Garage Attendant";
+    if (isConductor) return "Conductor";
+    return userRoleNames[0] || "User";
+  };
+
   return (
     <div className="flex h-full w-64 flex-col border-r bg-background">
       <div className="flex h-16 items-center border-b px-6">
-        <h2 className="text-lg font-semibold">Bus Management</h2>
+        <h2 className="text-lg font-semibold">{dashboardTitle}</h2>
       </div>
       
       <nav className="flex-1 space-y-1 p-4">
@@ -128,10 +187,10 @@ export function Sidebar() {
           </div>
           <div>
             <p className="text-sm font-medium">
-              {user?.first_name}
+              {user?.first_name || user?.username}
             </p>
             <p className="text-xs text-muted-foreground">
-              {userRoles[0]?.name || 'User'}
+              {getPrimaryRole()}
             </p>
           </div>
         </div>

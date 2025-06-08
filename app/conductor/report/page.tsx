@@ -258,7 +258,6 @@ export default function BusExpenseReport() {
                     <p className="text-sm text-muted-foreground">Total Expenses</p>
                     <p className="text-2xl font-bold text-red-600">{formatCurrency(summary.grand_total)}</p>
                   </div>
-                  <DollarSign className="h-8 w-8 text-red-600" />
                 </div>
               </CardContent>
             </Card>

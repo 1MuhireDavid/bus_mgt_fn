@@ -28,18 +28,38 @@ export default function LoginPage() {
   }, [user, router]);
 
     const redirectToDashboard = (userData: any) => {
-    const isGarageAttendant = userData.user_roles?.includes('Garage Attendant');
     const isAdmin = userData.user_roles?.includes('admin') || 
                    userData.user_roles?.includes('Company Admin') ||
                    userData.is_superuser;
     
     if (isAdmin) {
       router.push('/admin');
-    } else if (isGarageAttendant) {
-      router.push('/garage');
-    } else {
-      router.push('/conductor');
+      return;
     }
+
+    const userRoles = userData.user_roles || [];
+    
+    // Check for specific attendant roles
+    const isFuelAttendant = userRoles.includes('Fuel Attendant');
+    const isCarWashAttendant = userRoles.includes('Car Wash Attendant');
+    const isGarageAttendant = userRoles.includes('Garage Attendant') || 
+                             userRoles.includes('Maintenance Attendant');
+    const isConductor = userRoles.includes('Conductor');
+
+    // Route based on attendant type (priority order)
+    if (isFuelAttendant) {
+      router.push('/fuel_attendant');
+    } else if (isCarWashAttendant) {
+      router.push('/car_wash');
+    } else if (isGarageAttendant) {
+      router.push('/garage/maintenance');
+    } else if (isConductor) {
+      router.push('/conductor');
+    } else {
+      router.push('/');
+    }
+    
+
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -65,7 +85,6 @@ export default function LoginPage() {
     }
   };
 
-  // Show loading if user is already authenticated
   if (user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">

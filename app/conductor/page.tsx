@@ -176,96 +176,48 @@ export default function ConductorDashboard() {
         </Card>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-1">
         {/* Today's Schedule */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Today's Schedule
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {todayAssignments.length === 0 ? (
-                <div className="text-center py-6">
-                  <p className="text-sm text-muted-foreground mb-3">No assignments for today</p>
-                  <Button 
-                    size="sm" 
-                    onClick={() => router.push('/conductor/assignments/create')}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create New Assignment
-                  </Button>
-                </div>
-              ) : (
-                todayAssignments.map((assignment: any) => (
-                  <div key={assignment.id} className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{assignment.bus?.plate_number}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatTime(assignment.departure_time)} - 
-                        {formatTime(assignment.expected_return_time || assignment.return_time)}
-                      </p>
-                    </div>
-                    <Badge 
-                      variant={
-                        assignment.status === 'completed' ? 'default' :
-                        assignment.status === 'in_progress' ? 'secondary' : 'outline'
-                      }
-                    >
-                      {assignment.status}
-                    </Badge>
-                  </div>
-                ))
-              )}
+<Card>
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <Calendar className="h-5 w-5" />
+      Today&apos;s Schedule
+    </CardTitle>
+  </CardHeader>
+  <CardContent>
+    <div className="space-y-3">
+      {todayAssignments.length === 0 ? (
+        <div className="text-center py-6">
+          <p className="text-sm text-muted-foreground mb-3">No assignments for today</p>
+          <Button 
+            size="sm" 
+            onClick={() => router.push('/conductor/assignments/create')}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create New Assignment
+          </Button>
+        </div>
+      ) : (
+        todayAssignments.map((assignment: any) => (
+          <div key={assignment.id} className="flex items-center justify-between py-2 border-b last:border-b-0">
+            <div>
+              <p className="font-medium flex items-center gap-2">
+                <Bus className="h-4 w-4 text-blue-600" />
+                {assignment?.plate_number} - {assignment?.driver_name || 'No driver assigned'}
+              </p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              {formatTime(assignment.departure_time)}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  </CardContent>
+</Card>
 
-        {/* Recent Assignments */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Recent Assignments
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {myAssignments.slice(0, 5).map((assignment: any) => (
-                <div key={assignment.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{assignment.bus?.plate_number}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDateTime(assignment.departure_time)}
-                    </p>
-                  </div>
-                  <Badge 
-                    variant={
-                      assignment.status === 'completed' ? 'default' :
-                      assignment.status === 'in_progress' ? 'secondary' : 'outline'
-                    }
-                  >
-                    {assignment.status}
-                  </Badge>
-                </div>
-              ))}
-              {myAssignments.length === 0 && (
-                <div className="text-center py-6">
-                  <p className="text-sm text-muted-foreground mb-3">No assignments yet</p>
-                  <Button 
-                    size="sm" 
-                    onClick={() => router.push('/conductor/assignments/create')}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Your First Assignment
-                  </Button>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Quick Actions */}

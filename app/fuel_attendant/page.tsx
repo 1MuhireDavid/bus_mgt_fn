@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { toast } from "react-toastify";
 import { 
-  Droplets, 
+  Fuel, 
   Plus, 
   Search, 
   Filter,
@@ -27,13 +27,13 @@ import {
   BarChart3,
   Eye,
   Edit,
-  RefreshCw
+  RefreshCw,
+  Droplets
 } from 'lucide-react';
 import { useAuthStore } from "@/store/authStore";
+import { fuelAPI, assignmentAPI, userServiceRoleAPI, fuelStationAPI } from '@/lib/api';
 
-import { carWashAPI, assignmentAPI, userServiceRoleAPI } from '@/lib/api';
-
-export default function CarWashAttendantDashboard() {
+export default function FuelAttendantDashboard() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
   
@@ -44,37 +44,30 @@ export default function CarWashAttendantDashboard() {
   const [isViewRecordOpen, setIsViewRecordOpen] = useState(false);
   const [userAttendantRole, setUserAttendantRole] = useState(null);
 
-  // Form state for creating new wash record
-  const [washForm, setWashForm] = useState({
+  // Form state for creating new fuel record
+  const [fuelForm, setFuelForm] = useState({
     bus_assignment: '',
-    cost: '',
-    service_type: 'basic_wash',
+    fuel_station: '',
+    liters: '',
+    price_per_liter: '',
+    receipt_number: '',
     notes: ''
   });
-
-  // Service types available
-  const serviceTypes = [
-    { value: 'basic_wash', label: 'Basic Wash' },
-    { value: 'premium_wash', label: 'Premium Wash' },
-    { value: 'full_service', label: 'Full Service'},
-    { value: 'interior_only', label: 'Interior Only' },
-    { value: 'exterior_only', label: 'Exterior Only'}
-  ];
 
   // Fetch user's service roles to get attendant info
   const { data: userRolesData, isLoading: rolesLoading } = useQuery({
     queryKey: ['user-service-roles'],
     queryFn: () => userServiceRoleAPI.getMyRoles(),
     onSuccess: (data) => {
-      const carWashRole = data?.data?.find(role => role.attendant_type === 'car_wash');
-      setUserAttendantRole(carWashRole);
+      const fuelRole = data?.data?.find(role => role.attendant_type === 'fuel');
+      setUserAttendantRole(fuelRole);
     }
   });
 
-  // Fetch car wash records (filtered by user's attendant role)
-  const { data: washRecordsData, isLoading: recordsLoading } = useQuery({
-    queryKey: ['car-wash-records'],
-    queryFn: () => carWashAPI.getMyRecords(), // Use getMyRecords for attendant-specific records
+  // Fetch fuel records (filtered by user's attendant role)
+  const { data: fuelRecordsData, isLoading: recordsLoading } = useQuery({
+    queryKey: ['fuel-records'],
+    queryFn: () => fuelAPI.getMyRecords(),
   });
 
   // Fetch bus assignments for dropdown
@@ -83,29 +76,35 @@ export default function CarWashAttendantDashboard() {
     queryFn: () => assignmentAPI.getAll(),
   });
 
-  // Fetch wash statistics
+  // Fetch fuel stations
+  const { data: fuelStationsData } = useQuery({
+    queryKey: ['fuel-stations'],
+    queryFn: () => fuelStationAPI.getAll(),
+  });
+
+  // Fetch fuel statistics
   const { data: statsData } = useQuery({
-    queryKey: ['car-wash-statistics'],
-    queryFn: () => carWashAPI.getStatistics(userAttendantRole?.id),
+    queryKey: ['fuel-statistics'],
+    queryFn: () => fuelAPI.getStatistics(userAttendantRole?.id),
     enabled: !!userAttendantRole?.id
   });
 
-  // Create wash record mutation
-  const createWashMutation = useMutation({
-    mutationFn: (data) => carWashAPI.createRecord(data),
+  // Create fuel record mutation
+  const createFuelMutation = useMutation({
+    mutationFn: (data) => fuelAPI.createRecord(data),
     onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ['car-wash-records'] });
-      queryClient.invalidateQueries({ queryKey: ['car-wash-statistics'] });
+      queryClient.invalidateQueries({ queryKey: ['fuel-records'] });
+      queryClient.invalidateQueries({ queryKey: ['fuel-statistics'] });
       setIsCreateRecordOpen(false);
       resetForm();
-      toast.success('Car wash record created successfully!');
+      toast.success('Fuel record created successfully!');
     },
     onError: (error) => {
       console.error('Create record error:', error);
       const errorMessage = error.response?.data?.message || 
                           error.response?.data?.detail ||
                           Object.values(error.response?.data?.errors || {}).flat().join(', ') ||
-                          'Failed to create wash record';
+                          'Failed to create fuel record';
       toast.error(errorMessage);
     }
   });
@@ -113,23 +112,26 @@ export default function CarWashAttendantDashboard() {
   // Set user's attendant role when data is loaded
   useEffect(() => {
     if (userRolesData?.data) {
-      const carWashRole = userRolesData.data.data.find(role => role.attendant_type === 'car_wash');
-      setUserAttendantRole(carWashRole);
+      const fuelRole = userRolesData.data.data.find(role => role.attendant_type === 'fuel');
+      setUserAttendantRole(fuelRole);
     }
   }, [userRolesData]);
 
-  const washRecords = washRecordsData?.data.data || [];
+  const fuelRecords = fuelRecordsData?.data.data || [];
   const assignments = assignmentsData?.data || [];
+  const fuelStations = fuelStationsData?.data || [];
 
   // Filter active bus assignments only
   const activeAssignments = assignments.filter(assignment => 
-    assignment.status === 'assigned'
+    assignment.status === 'assigned' || assignment.status === 'in_progress'
   );
+
   // Filter records based on search and date
-  const filteredRecords = washRecords.filter((record) => {
+  const filteredRecords = fuelRecords.filter((record) => {
     const matchesSearch = 
       record.bus_assignment?.bus?.plate_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.service_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.fuel_station?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.receipt_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.notes?.toLowerCase().includes(searchTerm.toLowerCase());
 
     let matchesDate = true;
@@ -162,47 +164,50 @@ export default function CarWashAttendantDashboard() {
     return new Date(record.timestamp).toDateString() === today;
   });
 
-  const todayEarnings = todayRecords.reduce((sum, record) => sum + parseFloat(record.cost || 0), 0);
-  const avgServiceCost = filteredRecords.length > 0 ? 
-    filteredRecords.reduce((sum, record) => sum + parseFloat(record.cost || 0), 0) / filteredRecords.length : 0;
+  const todayFuelSold = todayRecords.reduce((sum, record) => sum + parseFloat(record.liters || 0), 0);
+  const todayRevenue = todayRecords.reduce((sum, record) => sum + parseFloat(record.total_amount || 0), 0);
+  const avgPricePerLiter = filteredRecords.length > 0 ? 
+    filteredRecords.reduce((sum, record) => sum + parseFloat(record.price_per_liter || 0), 0) / filteredRecords.length : 0;
 
   const resetForm = () => {
-    setWashForm({
+    setFuelForm({
       bus_assignment: '',
-      cost: '',
-      service_type: 'basic_wash',
+      fuel_station: '',
+      liters: '',
+      price_per_liter: '',
+      receipt_number: '',
       notes: ''
     });
   };
 
   const handleCreateRecord = () => {
     if (!userAttendantRole) {
-      toast.error('You must be registered as a car wash attendant to create records');
+      toast.error('You must be registered as a fuel attendant to create records');
       return;
     }
 
-    if (!washForm.bus_assignment || !washForm.cost) {
+    if (!fuelForm.bus_assignment || !fuelForm.fuel_station || !fuelForm.liters || !fuelForm.price_per_liter) {
       toast.error('Please fill in all required fields');
       return;
     }
 
     const submitData = {
-      bus_assignment: washForm.bus_assignment,
-      service_type: washForm.service_type,
-      cost: parseFloat(washForm.cost),
-      notes: washForm.notes || '',
-      attendant: washRecordsData?.data?.data?.[0]?.attendant,
-      car_wash_station: washRecordsData?.data?.data?.[0]?.car_wash_station
+      bus_assignment: fuelForm.bus_assignment,
+      attendant: userAttendantRole.id,
+      fuel_station: fuelForm.fuel_station,
+      liters: parseFloat(fuelForm.liters),
+      price_per_liter: parseFloat(fuelForm.price_per_liter),
+      receipt_number: fuelForm.receipt_number || '',
+      notes: fuelForm.notes || ''
     };
 
-    createWashMutation.mutate(submitData);
+    createFuelMutation.mutate(submitData);
   };
 
-  const handleServiceTypeChange = (serviceType) => {
-    setWashForm(prev => ({
-      ...prev,
-      service_type: serviceType
-    }));
+  const calculateTotal = () => {
+    const liters = parseFloat(fuelForm.liters) || 0;
+    const pricePerLiter = parseFloat(fuelForm.price_per_liter) || 0;
+    return liters * pricePerLiter;
   };
 
   const formatCurrency = (amount) => {
@@ -210,17 +215,6 @@ export default function CarWashAttendantDashboard() {
       style: 'currency',
       currency: 'RWF'
     }).format(amount || 0);
-  };
-
-  const getServiceBadge = (serviceType) => {
-    const variants = {
-      basic_wash: 'outline',
-      premium_wash: 'default',
-      full_service: 'secondary',
-      interior_only: 'outline',
-      exterior_only: 'outline'
-    };
-    return <Badge variant={variants[serviceType] || 'outline'}>{serviceType.replace('_', ' ')}</Badge>;
   };
 
   // Show loading state if user roles are still loading
@@ -233,14 +227,14 @@ export default function CarWashAttendantDashboard() {
     );
   }
 
-  // Show error if user is not a car wash attendant
+  // Show error if user is not a fuel attendant
   if (!userAttendantRole) {
     return (
       <div className="p-6">
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            You are not registered as a car wash attendant. Please contact your administrator to set up your attendant role.
+            You are not registered as a fuel attendant. Please contact your administrator to set up your attendant role.
           </AlertDescription>
         </Alert>
       </div>
@@ -253,8 +247,8 @@ export default function CarWashAttendantDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Droplets className="w-8 h-8 text-blue-600" />
-            Car Wash Dashboard
+            <Fuel className="w-8 h-8 text-orange-600" />
+            Fuel Attendant Dashboard
           </h1>
           <p className="text-muted-foreground mt-1">
             Welcome back, {user?.first_name}! - {userAttendantRole?.location_name}
@@ -273,31 +267,28 @@ export default function CarWashAttendantDashboard() {
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
-          title="Today's Services"
+          title="Today's Transactions"
           value={todayRecords.length}
+          icon={Fuel}
+          description="Fuel sales today"
+        />
+        <StatsCard
+          title="Fuel Sold Today"
+          value={`${todayFuelSold.toFixed(1)} L`}
           icon={Droplets}
-          description="Cars washed today"
+          description="Total liters dispensed"
         />
         <StatsCard
-          title="Today's Earnings"
-          value={formatCurrency(todayEarnings)}
+          title="Today's Revenue"
+          value={formatCurrency(todayRevenue)}
           icon={DollarSign}
-          description="Revenue generated"
+          description="Total earnings"
         />
         <StatsCard
-          title="Total This Week"
-          value={filteredRecords.filter(r => {
-            const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-            return new Date(r.timestamp) >= weekAgo;
-          }).length}
-          icon={Calendar}
-          description="This week's services"
-        />
-        <StatsCard
-          title="Average Service Cost"
-          value={formatCurrency(avgServiceCost)}
+          title="Avg Price/Liter"
+          value={formatCurrency(avgPricePerLiter)}
           icon={TrendingUp}
-          description="Per service average"
+          description="Average fuel price"
         />
       </div>
 
@@ -315,22 +306,22 @@ export default function CarWashAttendantDashboard() {
               <DialogTrigger asChild>
                 <Button className="h-20 flex flex-col gap-2">
                   <Plus className="h-6 w-6" />
-                  New Wash Record
+                  New Fuel Record
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Create Wash Record</DialogTitle>
+                  <DialogTitle>Create Fuel Record</DialogTitle>
                   <DialogDescription>
-                    Record a new car wash service at {userAttendantRole?.location_name}.
+                    Record a new fuel transaction at {userAttendantRole?.location_name}.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="bus_assignment">Bus Assignment *</Label>
                     <Select 
-                      value={washForm.bus_assignment} 
-                      onValueChange={(value) => setWashForm(prev => ({...prev, bus_assignment: value}))}
+                      value={fuelForm.bus_assignment} 
+                      onValueChange={(value) => setFuelForm(prev => ({...prev, bus_assignment: value}))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select bus assignment" />
@@ -352,42 +343,71 @@ export default function CarWashAttendantDashboard() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="service_type">Service Type *</Label>
+                    <Label htmlFor="fuel_station">Fuel Station *</Label>
                     <Select 
-                      value={washForm.service_type} 
-                      onValueChange={handleServiceTypeChange}
+                      value={fuelForm.fuel_station} 
+                      onValueChange={(value) => setFuelForm(prev => ({...prev, fuel_station: value}))}
                     >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder="Select fuel station" />
                       </SelectTrigger>
                       <SelectContent>
-                        {serviceTypes.map((service) => (
-                          <SelectItem key={service.value} value={service.value}>
-                            <div className="flex justify-between items-center w-full">
-                              <span>{service.label}</span>
-                            </div>
+                        {fuelStations.map((station) => (
+                          <SelectItem key={station.id} value={station.id}>
+                            {station.name} - {station.location}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="liters">Liters *</Label>
+                      <Input
+                        id="liters"
+                        type="number"
+                        step="0.1"
+                        placeholder="0.0"
+                        value={fuelForm.liters}
+                        onChange={(e) => setFuelForm(prev => ({...prev, liters: e.target.value}))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="price_per_liter">Price/Liter (RWF) *</Label>
+                      <Input
+                        id="price_per_liter"
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={fuelForm.price_per_liter}
+                        onChange={(e) => setFuelForm(prev => ({...prev, price_per_liter: e.target.value}))}
+                      />
+                    </div>
+                  </div>
+                  {fuelForm.liters && fuelForm.price_per_liter && (
+                    <div className="bg-orange-50 p-3 rounded-lg">
+                      <Label className="text-sm font-medium">Total Amount</Label>
+                      <p className="text-lg font-bold text-orange-600">
+                        {formatCurrency(calculateTotal())}
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-2">
-                    <Label htmlFor="cost">Cost (RWF) *</Label>
+                    <Label htmlFor="receipt_number">Receipt Number</Label>
                     <Input
-                      id="cost"
-                      type="number"
-                      placeholder="0.00"
-                      value={washForm.cost}
-                      onChange={(e) => setWashForm(prev => ({...prev, cost: e.target.value}))}
+                      id="receipt_number"
+                      placeholder="Enter receipt number"
+                      value={fuelForm.receipt_number}
+                      onChange={(e) => setFuelForm(prev => ({...prev, receipt_number: e.target.value}))}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="notes">Notes (Optional)</Label>
                     <Textarea
                       id="notes"
-                      placeholder="Additional notes about the service..."
-                      value={washForm.notes}
-                      onChange={(e) => setWashForm(prev => ({...prev, notes: e.target.value}))}
+                      placeholder="Additional notes about the fuel transaction..."
+                      value={fuelForm.notes}
+                      onChange={(e) => setFuelForm(prev => ({...prev, notes: e.target.value}))}
                       rows={3}
                     />
                   </div>
@@ -398,15 +418,15 @@ export default function CarWashAttendantDashboard() {
                   </Button>
                   <Button 
                     onClick={handleCreateRecord} 
-                    disabled={createWashMutation.isPending || !washForm.bus_assignment || !washForm.cost}
+                    disabled={createFuelMutation.isPending || !fuelForm.bus_assignment || !fuelForm.fuel_station || !fuelForm.liters || !fuelForm.price_per_liter}
                   >
-                    {createWashMutation.isPending ? 'Creating...' : 'Create Record'}
+                    {createFuelMutation.isPending ? 'Creating...' : 'Create Record'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
 
-            {/* <Button variant="outline" className="h-20 flex flex-col gap-2">
+            <Button variant="outline" className="h-20 flex flex-col gap-2">
               <BarChart3 className="h-6 w-6" />
               Daily Report
             </Button>
@@ -417,7 +437,7 @@ export default function CarWashAttendantDashboard() {
             <Button variant="outline" className="h-20 flex flex-col gap-2">
               <Clock className="h-6 w-6" />
               Time Log
-            </Button> */}
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -438,7 +458,7 @@ export default function CarWashAttendantDashboard() {
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="search"
-                  placeholder="Search by bus, service type..."
+                  placeholder="Search by bus, station, receipt..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9"
@@ -476,12 +496,12 @@ export default function CarWashAttendantDashboard() {
         </CardContent>
       </Card>
 
-      {/* Service Records */}
+      {/* Fuel Records */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Droplets className="w-5 h-5" />
-            Service Records
+            <Fuel className="w-5 h-5" />
+            Fuel Records
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -492,23 +512,23 @@ export default function CarWashAttendantDashboard() {
             </div>
           ) : filteredRecords.length === 0 ? (
             <div className="text-center py-8">
-              <Droplets className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-lg font-medium">No wash records found</p>
+              <Fuel className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-lg font-medium">No fuel records found</p>
               <p className="text-sm text-muted-foreground mb-4">
-                {washRecords.length === 0 
-                  ? "Start by creating your first wash record."
+                {fuelRecords.length === 0 
+                  ? "Start by creating your first fuel record."
                   : "Try adjusting your filters to see more records."
                 }
               </p>
               <Button onClick={() => setIsCreateRecordOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
-                Create Wash Record
+                Create Fuel Record
               </Button>
             </div>
           ) : (
             <div className="space-y-4">
               {filteredRecords.map((record) => (
-                <Card key={record.id} className="border-l-4 border-l-blue-500">
+                <Card key={record.id} className="border-l-4 border-l-orange-500">
                   <CardContent className="p-6">
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                       {/* Bus Info */}
@@ -523,16 +543,18 @@ export default function CarWashAttendantDashboard() {
                         </div>
                       </div>
 
-                      {/* Service Info */}
+                      {/* Fuel Info */}
                       <div>
                         <h4 className="font-semibold mb-2 flex items-center gap-2">
-                          <Droplets className="w-4 h-4" />
-                          Service
+                          <Fuel className="w-4 h-4" />
+                          Fuel Details
                         </h4>
                         <div className="space-y-1 text-sm">
-                          <div>{getServiceBadge(record.service_type)}</div>
-                          <p><span className="text-muted-foreground">Cost:</span> 
-                            <span className="font-medium text-green-600 ml-1">{formatCurrency(record.cost)}</span>
+                          <p><span className="text-muted-foreground">Station:</span> {record.fuel_station_name}</p>
+                          <p><span className="text-muted-foreground">Liters:</span> {record.liters} L</p>
+                          <p><span className="text-muted-foreground">Price/L:</span> {formatCurrency(record.price_per_liter)}</p>
+                          <p><span className="text-muted-foreground">Total:</span> 
+                            <span className="font-medium text-green-600 ml-1">{formatCurrency(record.total_amount)}</span>
                           </p>
                         </div>
                       </div>
@@ -541,11 +563,16 @@ export default function CarWashAttendantDashboard() {
                       <div>
                         <h4 className="font-semibold mb-2 flex items-center gap-2">
                           <Clock className="w-4 h-4" />
-                          Timing
+                          Transaction Info
                         </h4>
                         <div className="space-y-1 text-sm">
                           <p><span className="text-muted-foreground">Date:</span> {new Date(record.timestamp).toLocaleDateString()}</p>
                           <p><span className="text-muted-foreground">Time:</span> {new Date(record.timestamp).toLocaleTimeString()}</p>
+                          {record.receipt_number && (
+                            <p><span className="text-muted-foreground">Receipt:</span> 
+                              <Badge variant="outline" className="ml-1">{record.receipt_number}</Badge>
+                            </p>
+                          )}
                         </div>
                       </div>
 
@@ -564,10 +591,10 @@ export default function CarWashAttendantDashboard() {
                             <Eye className="w-4 h-4 mr-1" />
                             View
                           </Button>
-                          {/* <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm">
                             <Edit className="w-4 h-4 mr-1" />
                             Edit
-                          </Button> */}
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -590,9 +617,9 @@ export default function CarWashAttendantDashboard() {
       <Dialog open={isViewRecordOpen} onOpenChange={setIsViewRecordOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Wash Record Details</DialogTitle>
+            <DialogTitle>Fuel Record Details</DialogTitle>
             <DialogDescription>
-              Complete information about this car wash service.
+              Complete information about this fuel transaction.
             </DialogDescription>
           </DialogHeader>
           {selectedRecord && (
@@ -607,19 +634,33 @@ export default function CarWashAttendantDashboard() {
                   <p className="text-sm">{selectedRecord.driver_name}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Service Type</Label>
-                  <div className="mt-1">{getServiceBadge(selectedRecord.service_type)}</div>
+                  <Label className="text-sm font-medium">Fuel Station</Label>
+                  <p className="text-sm">{selectedRecord.fuel_station_name}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Cost</Label>
+                  <Label className="text-sm font-medium">Liters</Label>
+                  <p className="text-sm">{selectedRecord.liters} L</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Price per Liter</Label>
+                  <p className="text-sm">{formatCurrency(selectedRecord.price_per_liter)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Total Amount</Label>
                   <p className="text-sm font-semibold text-green-600">
-                    {formatCurrency(selectedRecord.cost)}
+                    {formatCurrency(selectedRecord.total_amount)}
                   </p>
                 </div>
                 <div className="col-span-2">
                   <Label className="text-sm font-medium">Date & Time</Label>
                   <p className="text-sm">{new Date(selectedRecord.timestamp).toLocaleString()}</p>
                 </div>
+                {selectedRecord.receipt_number && (
+                  <div className="col-span-2">
+                    <Label className="text-sm font-medium">Receipt Number</Label>
+                    <p className="text-sm">{selectedRecord.receipt_number}</p>
+                  </div>
+                )}
               </div>
               {selectedRecord.notes && (
                 <div>
@@ -632,6 +673,10 @@ export default function CarWashAttendantDashboard() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsViewRecordOpen(false)}>
               Close
+            </Button>
+            <Button>
+              <Edit className="w-4 h-4 mr-1" />
+              Edit Record
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -158,7 +158,7 @@ export default function EnhancedMaintenancePage() {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-FW', {
+    return new Intl.NumberFormat('en-FR', {
       style: 'currency',
       currency: 'RWF'
     }).format(amount || 0);
@@ -293,7 +293,6 @@ export default function EnhancedMaintenancePage() {
                 <p className="text-sm text-muted-foreground">Total Cost</p>
                 <p className="text-2xl font-bold">{formatCurrency(stats.total_cost || totalCost)}</p>
               </div>
-              <DollarSign className="h-8 w-8 text-green-600" />
             </div>
           </CardContent>
         </Card>

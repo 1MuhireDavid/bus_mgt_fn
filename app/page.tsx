@@ -34,13 +34,7 @@ const FleetManagementLanding = () => {
   const router = useRouter();
 
     useEffect(() => {
-    initializeAuth();
-    if (user) {
-      redirectToDashboard(user);
-    }
-  }, [user, router]);
-
-  const redirectToDashboard = (userData: any) => {
+      const redirectToDashboard = (userData: any) => {
     const isGarageAttendant = userData.user_roles?.includes('Garage Attendant');
     const isAdmin = userData.user_roles?.includes('admin') || 
                    userData.user_roles?.includes('Company Admin') ||
@@ -54,6 +48,13 @@ const FleetManagementLanding = () => {
       router.push('/conductor');
     }
   };
+    initializeAuth();
+    if (user) {
+      redirectToDashboard(user);
+    }
+  }, [user, router,initializeAuth]);
+
+
 
   // Auto-rotate features
   useEffect(() => {

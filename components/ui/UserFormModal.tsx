@@ -10,7 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "react-toastify";
-import { User } from "@/types";
+import { Role, User } from "@/types";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1";
@@ -20,11 +20,6 @@ type Props = {
   isOpen: boolean;
   onClose: () => void;
   refetch: () => void;
-};
-
-type Role = {
-  id: string;
-  name: string;
 };
 
 type Company = {
@@ -67,7 +62,7 @@ export default function UserFormModal({
         last_name: user.last_name || "",
         phone: user.phone || "",
         role_id: user.roles?.[0]?.id || "",
-        company_id: user.company?.id || "",
+        company_id: user.company || "",
         password: "",
         confirm_password: "",
       });
@@ -108,13 +103,18 @@ export default function UserFormModal({
 
         // Fetch companies
         setLoadingCompanies(true);
-        const companiesRes = await fetch(`${API_BASE_URL}/companies/companies/`, { headers });
+        const companiesRes = await fetch(
+          `${API_BASE_URL}/companies/companies/`,
+          { headers }
+        );
         const companiesData = await companiesRes.json();
         if (companiesRes.ok) {
           // Filter only active companies
-          const activeCompanies = (companiesData.data || companiesData || []).filter(
-            (company: Company) => company.is_active
-          );
+          const activeCompanies = (
+            companiesData.data ||
+            companiesData ||
+            []
+          ).filter((company: Company) => company.is_active);
           setCompanies(activeCompanies);
         } else {
           toast.error("Failed to load companies");
@@ -131,7 +131,9 @@ export default function UserFormModal({
     fetchData();
   }, [isOpen]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
@@ -165,7 +167,7 @@ export default function UserFormModal({
   const handleSubmit = async () => {
     const validationErrors = validateForm();
     if (validationErrors.length > 0) {
-      validationErrors.forEach(error => toast.error(error));
+      validationErrors.forEach((error) => toast.error(error));
       return;
     }
 
@@ -173,10 +175,10 @@ export default function UserFormModal({
     const token = localStorage.getItem("access_token");
     const isEdit = Boolean(user);
     const endpoint = isEdit
-      ? `${API_BASE_URL}/auth/users/${user?.id}/`
+      ? `${API_BASE_URL}/auth/${user?.id}/`
       : `${API_BASE_URL}/auth/register/`;
     const method = isEdit ? "PUT" : "POST";
-
+console.log(formData.company_id,"formData.company_id")
     try {
       const bodyData: any = {
         username: formData.username,
@@ -204,13 +206,15 @@ export default function UserFormModal({
       });
 
       const data = await res.json();
-      
+
       if (!res.ok) {
         // Handle specific error messages
         if (data.errors) {
-          Object.values(data.errors).flat().forEach((error: any) => {
-            toast.error(error);
-          });
+          Object.values(data.errors)
+            .flat()
+            .forEach((error: any) => {
+              toast.error(error);
+            });
         } else {
           throw new Error(data.message || "Something went wrong");
         }
@@ -260,7 +264,9 @@ export default function UserFormModal({
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-sm font-medium mb-1">First Name *</label>
+              <label className="block text-sm font-medium mb-1">
+                First Name *
+              </label>
               <Input
                 name="first_name"
                 placeholder="First name"
@@ -270,7 +276,9 @@ export default function UserFormModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Last Name *</label>
+              <label className="block text-sm font-medium mb-1">
+                Last Name *
+              </label>
               <Input
                 name="last_name"
                 placeholder="Last name"
@@ -335,7 +343,9 @@ export default function UserFormModal({
           {!user && (
             <>
               <div>
-                <label className="block text-sm font-medium mb-1">Password *</label>
+                <label className="block text-sm font-medium mb-1">
+                  Password *
+                </label>
                 <Input
                   name="password"
                   placeholder="Enter password (min 8 characters)"
@@ -346,7 +356,9 @@ export default function UserFormModal({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Confirm Password *</label>
+                <label className="block text-sm font-medium mb-1">
+                  Confirm Password *
+                </label>
                 <Input
                   name="confirm_password"
                   placeholder="Confirm password"
@@ -360,15 +372,15 @@ export default function UserFormModal({
           )}
 
           <div className="flex gap-2 pt-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={onClose}
               disabled={isSubmitting}
               className="flex-1"
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleSubmit}
               disabled={isSubmitting || loadingRoles || loadingCompanies}
               className="flex-1"

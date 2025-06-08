@@ -5,6 +5,7 @@ import './globals.css'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/store/authStore'
+import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar'
 import { authAPI } from '@/lib/api'
 import { ToastContainer } from 'react-toastify';
@@ -18,6 +19,8 @@ export default function RootLayout({
 }) {
   const [queryClient] = useState(() => new QueryClient())
   const { setUser, isAuthenticated } = useAuthStore()
+  const router = useRouter();
+  const pathname = usePathname();
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -37,6 +40,15 @@ export default function RootLayout({
 
     initAuth()
   }, [setUser])
+  useEffect(() => {
+    // Protect routes that require authentication
+    const protectedRoutes = ['/admin', '/conductor', '/garage','/fuel_attendant', '/car_wash'];
+    const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+    
+    if (isProtectedRoute && !isAuthenticated && !localStorage.getItem('access_token')) {
+      router.push('/login');
+    }
+  }, [pathname,isAuthenticated,router]);
 
   if (isLoading) {
     return (
