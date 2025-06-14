@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { StatsCard } from "@/components/dashboard/StatsCard";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { StatsCard } from "@/components/ui/StatsCard";
 import { toast } from "react-toastify";
 import { 
   Droplets, 
@@ -343,7 +344,8 @@ export default function CarWashAttendantDashboard() {
                                 {assignment.plate_number}
                               </span>
                               <span className="text-xs text-muted-foreground">
-                                Driver: {assignment.driver_name}
+                                Driver: {assignment.driver_name} - 
+                                {assignment.driver_phone_number}  
                               </span>
                             </div>
                           </SelectItem>
@@ -405,19 +407,6 @@ export default function CarWashAttendantDashboard() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-
-            {/* <Button variant="outline" className="h-20 flex flex-col gap-2">
-              <BarChart3 className="h-6 w-6" />
-              Daily Report
-            </Button>
-            <Button variant="outline" className="h-20 flex flex-col gap-2">
-              <Calendar className="h-6 w-6" />
-              Schedule
-            </Button>
-            <Button variant="outline" className="h-20 flex flex-col gap-2">
-              <Clock className="h-6 w-6" />
-              Time Log
-            </Button> */}
           </div>
         </CardContent>
       </Card>
@@ -476,12 +465,12 @@ export default function CarWashAttendantDashboard() {
         </CardContent>
       </Card>
 
-      {/* Service Records */}
+      {/* Service Records Table */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Droplets className="w-5 h-5" />
-            Service Records
+            Service Records ({filteredRecords.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -506,81 +495,70 @@ export default function CarWashAttendantDashboard() {
               </Button>
             </div>
           ) : (
-            <div className="space-y-4">
-              {filteredRecords.map((record) => (
-                <Card key={record.id} className="border-l-4 border-l-blue-500">
-                  <CardContent className="p-6">
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                      {/* Bus Info */}
-                      <div>
-                        <h4 className="font-semibold mb-2 flex items-center gap-2">
-                          <Bus className="w-4 h-4" />
-                          Bus Details
-                        </h4>
-                        <div className="space-y-1 text-sm">
-                          <p><span className="text-muted-foreground">Bus:</span> {record.bus_plate_number}</p>
-                          <p><span className="text-muted-foreground">Driver:</span> {record.driver_name}</p>
-                        </div>
-                      </div>
-
-                      {/* Service Info */}
-                      <div>
-                        <h4 className="font-semibold mb-2 flex items-center gap-2">
-                          <Droplets className="w-4 h-4" />
-                          Service
-                        </h4>
-                        <div className="space-y-1 text-sm">
-                          <div>{getServiceBadge(record.service_type)}</div>
-                          <p><span className="text-muted-foreground">Cost:</span> 
-                            <span className="font-medium text-green-600 ml-1">{formatCurrency(record.cost)}</span>
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Time Info */}
-                      <div>
-                        <h4 className="font-semibold mb-2 flex items-center gap-2">
-                          <Clock className="w-4 h-4" />
-                          Timing
-                        </h4>
-                        <div className="space-y-1 text-sm">
-                          <p><span className="text-muted-foreground">Date:</span> {new Date(record.timestamp).toLocaleDateString()}</p>
-                          <p><span className="text-muted-foreground">Time:</span> {new Date(record.timestamp).toLocaleTimeString()}</p>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div>
-                        <h4 className="font-semibold mb-2">Actions</h4>
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => {
-                              setSelectedRecord(record);
-                              setIsViewRecordOpen(true);
-                            }}
-                          >
-                            <Eye className="w-4 h-4 mr-1" />
-                            View
-                          </Button>
-                          {/* <Button variant="outline" size="sm">
-                            <Edit className="w-4 h-4 mr-1" />
-                            Edit
-                          </Button> */}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Notes */}
-                    {record.notes && (
-                      <div className="mt-4 pt-4 border-t">
-                        <p className="text-sm"><span className="text-muted-foreground">Notes:</span> {record.notes}</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Bus</TableHead>
+                    <TableHead>Driver</TableHead>
+                    <TableHead>Service Type</TableHead>
+                    <TableHead>Cost</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Notes</TableHead>
+                    <TableHead className="w-[100px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredRecords.map((record) => (
+                    <TableRow key={record.id}>
+                      <TableCell className="font-medium">
+                        {record.bus_plate_number}
+                      </TableCell>
+                      <TableCell>{record.driver_name}</TableCell>
+                      <TableCell>
+                        {getServiceBadge(record.service_type)}
+                      </TableCell>
+                      <TableCell className="font-semibold text-green-600">
+                        {formatCurrency(record.cost)}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(record.timestamp).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(record.timestamp).toLocaleTimeString([], { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </TableCell>
+                      <TableCell className="max-w-[200px]">
+                        {record.notes ? (
+                          <span className="text-sm text-muted-foreground truncate block">
+                            {record.notes.length > 50 
+                              ? record.notes.substring(0, 50) + '...' 
+                              : record.notes
+                            }
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">No notes</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setSelectedRecord(record);
+                            setIsViewRecordOpen(true);
+                          }}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>

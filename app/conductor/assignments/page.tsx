@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { assignmentAPI, busAPI } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -21,10 +23,12 @@ import {
   Plus,
   Search,
   ArrowRight,
-  Building
+  Building,
+  MoreHorizontal
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 // Helper functions for date formatting
 const formatDate = (date: string) => {
@@ -35,19 +39,26 @@ const formatDate = (date: string) => {
   });
 };
 
-const formatTime = (date: string) => {
+export const formatTime = (date: string) => {
   return new Date(date).toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit'
   });
 };
 
-const formatDateTime = (date: string) => {
+export const formatDateTime = (date: string) => {
   return new Date(date).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
+  });
+};
+
+export const formatDateShort = (date: string) => {
+  return new Date(date).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric'
   });
 };
 
@@ -60,14 +71,6 @@ export default function ConductorAssignments() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [selectedAssignmentForCompletion, setSelectedAssignmentForCompletion] = useState<any>(null);
-  const [selectedReturnPark, setSelectedReturnPark] = useState('');
-
-  // Fetch bus parks for the completion modal
-  const { data: busParksData } = useQuery({
-    queryKey: ['busParks'],
-    queryFn: () => busAPI.getBusParks(),
-    enabled: showCompleteModal
-  });
 
   const { data: assignmentsResponse, isLoading } = useQuery({
     queryKey: ['conductorAssignments'],
@@ -82,14 +85,11 @@ export default function ConductorAssignments() {
     },
   });
 
-  
-
   if (isLoading) {
     return <div className="p-6">Loading assignments...</div>;
   }
 
   const assignments = assignmentsResponse?.data || [];
-  console.log(assignments,"assignmentsassignments")
   // Filter assignments for current conductor
   const myAssignments = assignments.filter(
     (assignment: any) => assignment.conductor === user?.id
@@ -137,68 +137,79 @@ export default function ConductorAssignments() {
   );
 
 
+ const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      'assigned': { variant: 'secondary', label: 'Scheduled', icon: Clock },
+      'departed': { variant: 'default', label: 'In Progress', icon: Play },
+      'in_progress': { variant: 'default', label: 'In Progress', icon: Play },
+      'completed': { variant: 'default', label: 'Returned', icon: CheckCircle, className: 'bg-green-100 text-green-800 hover:bg-green-100' },
+      'cancelled': { variant: 'destructive', label: 'Cancelled', icon: XCircle }
+    };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'assigned':
-        return <Clock className="h-4 w-4" />;
-      case 'departed':
-      case 'in_progress':
-        return <Play className="h-4 w-4" />;
-      case 'completed':
-        return <CheckCircle className="h-4 w-4" />;
-      case 'cancelled':
-        return <XCircle className="h-4 w-4" />;
-      default:
-        return <Clock className="h-4 w-4" />;
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.assigned;
+    const Icon = config.icon;
+
+    return (
+      <Badge variant={config.variant} className={config.className}>
+        <Icon className="h-3 w-3 mr-1" />
+        {config.label}
+      </Badge>
+    );
+  };
+
+  // Updated function to handle completion with automatic bus park selection
+  const handleCompleteAssignment = async (assignment: any) => {
+    // Check if conductor has a designated bus park
+    if (user?.bus_park_id) {
+      // Automatically complete with conductor's bus park
+      completeAssignmentMutation.mutate({
+        id: assignment.id,
+        returnParkId: user.bus_park_id
+      });
+    } else {
+      // Fallback to original behavior if no bus park assigned
+      setSelectedAssignmentForCompletion(assignment);
+      setShowCompleteModal(true);
     }
   };
 
-
-
-  const busParks = busParksData?.data?.results || busParksData?.data || [];
-  const handleCompleteAssignment = async (assignment: any) => {
-    setSelectedAssignmentForCompletion(assignment);
-    setSelectedReturnPark(assignment.departure_bus_park_id || '');
-    setShowCompleteModal(true);
-  };
-
+  // Updated function for manual completion (fallback)
   const handleConfirmComplete = () => {
-    if (selectedAssignmentForCompletion && selectedReturnPark) {
+    if (selectedAssignmentForCompletion) {
+      // Use conductor's bus park or departure park as fallback
+      const returnParkId = user?.bus_park_id || selectedAssignmentForCompletion.departure_bus_park_id;
+      
       completeAssignmentMutation.mutate({
         id: selectedAssignmentForCompletion.id,
-        returnParkId: selectedReturnPark
+        returnParkId: returnParkId
       });
       setShowCompleteModal(false);
       setSelectedAssignmentForCompletion(null);
-      setSelectedReturnPark('');
     }
   };
 
   const handleCancelComplete = () => {
     setShowCompleteModal(false);
     setSelectedAssignmentForCompletion(null);
-    setSelectedReturnPark('');
   };
 
   const canCompleteAssignment = (assignment: any) => {
     return ['assigned', 'departed', 'in_progress'].includes(assignment.status);
   };
 
-
-  console.log(filteredAssignments,"filteredAssignments")
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">My Assignments</h1>
+        <h1 className="text-3xl font-bold">My Schedules</h1>
         <Button 
           onClick={() => router.push('/conductor/assignments/create')}
           className="flex items-center gap-2"
         >
           <Plus className="h-4 w-4" />
-          Create Assignment
+          Create Schedule
         </Button>
       </div>
+
 
       {/* Filters */}
       <Card>
@@ -281,154 +292,144 @@ export default function ConductorAssignments() {
         </Card>
       </div>
 
-      {/* Assignments List */}
+      {/* Schedules Table */}
       <Card>
         <CardHeader>
           <CardTitle>Schedules Details</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {filteredAssignments.length === 0 ? (
-              <div className="text-center py-8">
-                <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-lg font-medium">No assignments found</p>
-                <p className="text-sm text-muted-foreground mb-4">
-                  No assignments match your current filters.
-                </p>
-                <Button 
-                  onClick={() => router.push('/conductor/assignments/create')}
-                  className="flex items-center gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Create New Assignment
-                </Button>
-              </div>
-            ) : (
-              filteredAssignments.map((assignment: any) => (
-                <div key={assignment.id} className="border rounded-lg p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      {getStatusIcon(assignment.status)}
-                      <div>
-                        <h3 className="font-semibold text-lg">
-                          Schedule
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(assignment.departure_time)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-4">
-                    <div className="flex items-center space-x-2">
-                      <Bus className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Bus</p>
-                        <p className="font-medium">{assignment.plate_number}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Driver</p>
-                        <p className="font-medium">{assignment.driver_name}</p>
-                        <p className="font-medium">{assignment.driver_phone_number}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Departure</p>
-                        <p className="font-medium">
-                          {formatTime(assignment.departure_time)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Route</p>
-                        <p className="font-medium">{assignment.route_name || 'Not specified'}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Bus Park Information */}
-                  {(assignment.departure_bus_park_name || assignment.return_bus_park_name) && (
-                    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        {assignment.departure_bus_park_name && (
-                          <div className="flex items-center gap-2">
-                            <Building className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">From: {assignment.departure_bus_park_name}</span>
-                          </div>
-                        )}
-                        {assignment.departure_bus_park_name && assignment.return_bus_park_name && (
-                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                        )}
-                        {assignment.return_bus_park_name && (
-                          <div className="flex items-center gap-2">
-                            <Building className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">To: {assignment.return_bus_park_name}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Trip Duration */}
-                  {assignment.trip_duration && (
-                    <div className="mb-4 text-sm text-muted-foreground">
-                      Trip Duration: {assignment.trip_duration}
-                    </div>
-                  )}
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-2">
-                    {canCompleteAssignment(assignment) && (
-                      <Button 
-                        size="sm"
-                        onClick={() => handleCompleteAssignment(assignment)}
-                        disabled={completeAssignmentMutation.isPending}
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Complete Assignment
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Completed Assignment Info */}
-                  {assignment.status === 'completed' && assignment.return_time && (
-                    <div className="mt-3 pt-3 border-t text-sm text-muted-foreground">
-                      Completed at: {formatDateTime(assignment.return_time)}
-                      {assignment.trip_duration && (
-                        <span className="ml-4">Duration: {assignment.trip_duration}</span>
+          {filteredAssignments.length === 0 ? (
+            <div className="text-center py-8">
+              <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-lg font-medium">No Schedule found</p>
+              <p className="text-sm text-muted-foreground mb-4">
+                No Schedules match your current filters.
+              </p>
+              <Button 
+                onClick={() => router.push('/conductor/assignments/create')}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Create New Schedule
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date & Time</TableHead>
+                  <TableHead>Bus</TableHead>
+                  <TableHead>Driver</TableHead>
+                  <TableHead>Route</TableHead>
+                  <TableHead>Bus Parks</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredAssignments.map((assignment: any) => (
+                  <TableRow key={assignment.id}>
+                    <TableCell>
+                      <div className="font-medium">{formatDateShort(assignment.departure_time)}</div>
+                      <div className="text-sm text-muted-foreground">{formatTime(assignment.departure_time)}</div>
+                      {assignment.status === 'completed' && assignment.return_time && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Returned: {formatDateTime(assignment.return_time)}
+                        </div>
                       )}
-                    </div>
-                  )}
-
-                  {/* Notes */}
-                  {assignment.notes && (
-                    <div className="mt-3 pt-3 border-t">
-                      <p className="text-sm text-muted-foreground">Notes:</p>
-                      <p className="text-sm">{assignment.notes}</p>
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Bus className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{assignment.plate_number}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{assignment.driver_name}</div>
+                        <div className="text-sm text-muted-foreground">{assignment.driver_phone_number}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span>{assignment.route_name || 'Not specified'}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {(assignment.departure_park_name || assignment.return_park_name) ? (
+                        <div className="text-sm">
+                          {assignment.departure_park_name && (
+                            <div className="flex items-center gap-1 mb-1">
+                              <Building className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-muted-foreground">From:</span> {assignment.departure_park_name}
+                            </div>
+                          )}
+                          {assignment.return_park_name && (
+                            <div className="flex items-center gap-1">
+                              <Building className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-muted-foreground">To:</span> {assignment.return_park_name}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(assignment.status)}
+                      {assignment.trip_duration && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Duration: {assignment.trip_duration}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {canCompleteAssignment(assignment) && (
+                          <Button 
+                            size="sm"
+                            onClick={() => handleCompleteAssignment(assignment)}
+                            disabled={completeAssignmentMutation.isPending}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            {completeAssignmentMutation.isPending ? 'Completing...' : 'Complete'}
+                          </Button>
+                        )}
+                        
+                        {assignment.notes && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-64">
+                              <div className="p-2">
+                                <p className="text-sm font-medium mb-1">Notes:</p>
+                                <p className="text-sm text-muted-foreground">{assignment.notes}</p>
+                              </div>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
-      {/* Complete Assignment Modal */}
+      {/* Fallback Complete Assignment Modal (only shown if no bus park assigned) */}
       <Dialog open={showCompleteModal} onOpenChange={setShowCompleteModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-green-600" />
-              Complete Schedules
+              Complete Schedule
             </DialogTitle>
           </DialogHeader>
           
@@ -440,56 +441,21 @@ export default function ConductorAssignments() {
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <span className="text-muted-foreground">Bus:</span>
-                    <div className="font-medium">{selectedAssignmentForCompletion.bus_plate_number}</div>
+                    <div className="font-medium">{selectedAssignmentForCompletion.plate_number}</div>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Driver:</span>
                     <div className="font-medium">{selectedAssignmentForCompletion.driver_name}</div>
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Route:</span>
-                    <div className="font-medium">{selectedAssignmentForCompletion.route_name || 'Not specified'}</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Departure:</span>
-                    <div className="font-medium">{formatTime(selectedAssignmentForCompletion.departure_time)}</div>
-                  </div>
                 </div>
               </div>
 
-              {/* Return Bus Park Selection */}
-              <div className="space-y-2">
-                <Label htmlFor="return_park">Select Return Bus Park *</Label>
-                <Select value={selectedReturnPark} onValueChange={setSelectedReturnPark}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose where the bus will be returned" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {busParks.map((park: any) => (
-                      <SelectItem key={park.id} value={park.id}>
-                        <div>
-                          <div className="font-medium">{park.name}</div>
-                          <div className="text-sm text-muted-foreground">{park.location}</div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  This will update the bus location and mark it as available for new assignments.
+              {/* Information about automatic return */}
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <Building className="inline h-4 w-4 mr-1" />
+                  Bus will be returned to: <strong>{selectedAssignmentForCompletion.departure_park_name || 'Original departure location'}</strong>
                 </p>
-              </div>
-
-              {/* Completion Summary */}
-              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <h5 className="font-medium text-blue-900 mb-2">What happens when you complete?</h5>
-                <ul className="text-sm text-blue-800 space-y-1">
-                  <li>• Assignment status will be marked as "completed"</li>
-                  <li>• Bus will be returned to the selected park</li>
-                  <li>• Bus status will change to &quot;active/available&quot;</li>
-                  <li>• Driver will become available for new assignments</li>
-                  <li>• Trip duration will be calculated and recorded</li>
-                </ul>
               </div>
             </div>
           )}
@@ -500,7 +466,7 @@ export default function ConductorAssignments() {
             </Button>
             <Button 
               onClick={handleConfirmComplete}
-              disabled={!selectedReturnPark || completeAssignmentMutation.isPending}
+              disabled={completeAssignmentMutation.isPending}
               className="bg-green-600 hover:bg-green-700"
             >
               {completeAssignmentMutation.isPending ? (

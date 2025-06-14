@@ -368,6 +368,7 @@ export default function CreateAssignmentPage() {
                       {drivers.slice(0, 5).map((driver: any) => (
                         <div key={driver.id} className="flex justify-between items-center text-xs">
                           <span>{driver.driver_name}</span>
+                          <span>{driver.phone_number}</span>
                           {getDriverStatusBadge(driver.status)}
                         </div>
                       ))}

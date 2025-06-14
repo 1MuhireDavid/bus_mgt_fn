@@ -178,7 +178,6 @@ export default function UserFormModal({
       ? `${API_BASE_URL}/auth/${user?.id}/`
       : `${API_BASE_URL}/auth/register/`;
     const method = isEdit ? "PUT" : "POST";
-console.log(formData.company_id,"formData.company_id")
     try {
       const bodyData: any = {
         username: formData.username,

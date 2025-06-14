@@ -22,11 +22,6 @@ export default function LoginPage() {
 
   useEffect(() => {
     initializeAuth();
-    if (user) {
-      redirectToDashboard(user);
-    }
-  }, [user, router]);
-
     const redirectToDashboard = (userData: any) => {
     const isAdmin = userData.user_roles?.includes('admin') || 
                    userData.user_roles?.includes('Company Admin') ||
@@ -42,11 +37,10 @@ export default function LoginPage() {
     // Check for specific attendant roles
     const isFuelAttendant = userRoles.includes('Fuel Attendant');
     const isCarWashAttendant = userRoles.includes('Car Wash Attendant');
-    const isGarageAttendant = userRoles.includes('Garage Attendant') || 
-                             userRoles.includes('Maintenance Attendant');
-    const isConductor = userRoles.includes('Conductor');
+    const isGarageAttendant = userRoles.includes('maintenance');
+    const isConductor = userRoles.includes('conductor');
 
-    // Route based on attendant type (priority order)
+    
     if (isFuelAttendant) {
       router.push('/fuel_attendant');
     } else if (isCarWashAttendant) {
@@ -60,7 +54,14 @@ export default function LoginPage() {
     }
     
 
+  
   };
+    if (user) {
+      redirectToDashboard(user);
+    }
+
+  }, [user, router,initializeAuth]);
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,7 +91,6 @@ export default function LoginPage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p>Redirecting to dashboard...</p>
           </CardContent>
         </Card>

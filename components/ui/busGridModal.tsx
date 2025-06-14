@@ -131,11 +131,10 @@ export default function BusGridComponent() {
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
                 <option value="all">All Statuses</option>
-                <option value="available">Available</option>
+                <option value="active">Active</option>
                 <option value="assigned">Assigned</option>
-                <option value="in_use">In Use</option>
-                <option value="maintenance">Maintenance</option>
-                <option value="out_of_service">Out of Service</option>
+                <option value="under_maintenance">Under Maintenance</option>
+                <option value="decomissioned">Decomissioned</option>
               </select>
             </div>
             <div className="space-y-2">
@@ -255,8 +254,8 @@ export default function BusGridComponent() {
                         <span className="font-medium">{bus.model || 'N/A'}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Capacity:</span>
-                        <span className="font-medium">{bus.capacity || 'N/A'}</span>
+                        <span className="text-muted-foreground">Model:</span>
+                        <span className="font-medium">{bus.model || 'N/A'}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Location:</span>

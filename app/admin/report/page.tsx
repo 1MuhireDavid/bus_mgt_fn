@@ -38,221 +38,12 @@ import {
   Map,
   Info,
   Target,
-  Activity,
   Calendar as CalendarIcon,
   Search,
   Truck
 } from 'lucide-react';
-import { busAPI, enhancedDashboardAPI } from '@/lib/api';
+import { busAPI, DashboardAPI } from '@/lib/api';
 
-// Mock API functions - replace with your actual API
-const mockAPI = {
-  getBusExpenseReport: async (startDate, endDate, busId) => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock response structure
-    return {
-      data: {
-        date_range: {
-          start_date: startDate,
-          end_date: endDate
-        },
-        summary: {
-          total_assignments: 2,
-          total_fuel_cost: 103920.00,
-          total_fuel_liters: 60.00,
-          average_fuel_price: 1732.00,
-          total_maintenance_cost: 0,
-          total_wash_cost: 10000.00,
-          grand_total: 113920.00,
-          average_cost_per_assignment: 56960.00
-        },
-        assignments: [
-          {
-            assignment_id: "1cfcbcab-fb0d-44b7-9a47-5b10dc0b8987",
-            bus_info: {
-              id: "bus-1",
-              plate_number: "RAB201B",
-              model: "Toyota Hiace",
-              capacity: 14
-            },
-            driver_info: {
-              id: "driver-1",
-              name: "Karekezi",
-              license_number: "LIC001"
-            },
-            conductor_info: {
-              id: "conductor-1",
-              name: "John Doe"
-            },
-            route_info: {
-              name: "Nyabugogo - Kimisagara",
-              start_location: "Nyabugogo",
-              end_location: "Kimisagara"
-            },
-            departure_park_info: {
-              id: "park-1",
-              name: "Nyabugogo Bus Park",
-              location: "Nyabugogo, Kigali",
-              contact: "+250788123456"
-            },
-            return_park_info: {
-              id: "park-1",
-              name: "Nyabugogo Bus Park",
-              location: "Nyabugogo, Kigali",
-              contact: "+250788123456"
-            },
-            schedule: {
-              departure_time: "2025-06-11T08:00:00Z",
-              return_time: "2025-06-11T18:00:00Z",
-              actual_departure_time: "2025-06-11T08:05:00Z",
-              status: "completed"
-            },
-            expenses: {
-              fuel: {
-                total_cost: 103920.00,
-                total_liters: 60.00,
-                records: [
-                  {
-                    id: "fuel-1",
-                    attendant_name: "omar kagarama",
-                    liters: 30.00,
-                    price_per_liter: 1732.00,
-                    amount: 51960.00,
-                    timestamp: "2025-06-11T08:00:46Z",
-                    receipt_number: "xxx",
-                    fuel_station_name: "Sp Nyabugogo",
-                    fuel_station_location: "Nyabugogo"
-                  },
-                  {
-                    id: "fuel-2",
-                    attendant_name: "omar kagarama",
-                    liters: 30.00,
-                    price_per_liter: 1732.00,
-                    amount: 51960.00,
-                    timestamp: "2025-06-11T09:25:27Z",
-                    receipt_number: "xxx",
-                    fuel_station_name: "Sp Nyabugogo",
-                    fuel_station_location: "Nyabugogo"
-                  }
-                ]
-              },
-              maintenance: {
-                total_cost: 0,
-                records: []
-              },
-              wash: {
-                total_cost: 0,
-                records: []
-              }
-            },
-            total_cost: 103920.00,
-            notes: "Regular fuel for daily operations"
-          },
-          {
-            assignment_id: "511a3d6a-aac5-45db-b8d1-57677cc887b0",
-            bus_info: {
-              id: "bus-1",
-              plate_number: "RAB201B",
-              model: "Toyota Hiace",
-              capacity: 14
-            },
-            driver_info: {
-              id: "driver-2",
-              name: "Karake",
-              license_number: "LIC002"
-            },
-            conductor_info: {
-              id: "conductor-2",
-              name: "Jane Smith"
-            },
-            route_info: {
-              name: "Kimisagara - Nyabugogo",
-              start_location: "Kimisagara",
-              end_location: "Nyabugogo"
-            },
-            departure_park_info: {
-              id: "park-2",
-              name: "Kimisagara Park",
-              location: "Kimisagara, Kigali",
-              contact: "+250788654321"
-            },
-            return_park_info: {
-              id: "park-1",
-              name: "Nyabugogo Bus Park",
-              location: "Nyabugogo, Kigali",
-              contact: "+250788123456"
-            },
-            schedule: {
-              departure_time: "2025-06-11T14:00:00Z",
-              return_time: "2025-06-11T20:00:00Z",
-              actual_departure_time: "2025-06-11T14:10:00Z",
-              status: "completed"
-            },
-            expenses: {
-              fuel: {
-                total_cost: 0,
-                total_liters: 0,
-                records: []
-              },
-              maintenance: {
-                total_cost: 0,
-                records: []
-              },
-              wash: {
-                total_cost: 10000.00,
-                records: [
-                  {
-                    id: "wash-1",
-                    attendant_name: "emma ntore",
-                    cost: 10000.00,
-                    timestamp: "2025-06-11T09:04:19Z",
-                    car_wash_station_name: "Car wash",
-                    car_wash_station_location: "Nyabugogo",
-                    service_type: "interior_only",
-                    service_type_display: "Interior Only",
-                    notes: ""
-                  }
-                ]
-              }
-            },
-            total_cost: 10000.00,
-            notes: "N/A"
-          }
-        ]
-      }
-    };
-  },
-  getBuses: async () => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return {
-      data: [
-        {
-          id: "bus-1",
-          plate_number: "RAB201B",
-          model: "Toyota Hiace",
-          capacity: 14,
-          status: "active"
-        },
-        {
-          id: "bus-2",
-          plate_number: "RAB202C",
-          model: "Toyota Coaster",
-          capacity: 29,
-          status: "active"
-        },
-        {
-          id: "bus-3",
-          plate_number: "RAB203D",
-          model: "Mitsubishi Rosa",
-          capacity: 22,
-          status: "maintenance"
-        }
-      ]
-    };
-  }
-};
 
 // Enhanced Bus Park Status Component
 const BusParkStatus = ({ assignment }) => {
@@ -378,7 +169,7 @@ const BusParkStatus = ({ assignment }) => {
             </>
           ) : (
             <>
-              <p className="font-medium text-gray-600">Expected: {assignment.route_info.end_location}</p>
+              <p className="font-medium text-gray-600">Still In Use</p>
               <p className="text-sm text-gray-500">Status: {assignment.schedule.status}</p>
             </>
           )}
@@ -473,7 +264,7 @@ export default function UnifiedBusExpenseReport() {
     queryFn: () => busAPI.getAll(),
   });
 
-  // Query for expense report
+  
   const { 
     data: reportData, 
     isLoading: reportLoading, 
@@ -482,7 +273,7 @@ export default function UnifiedBusExpenseReport() {
     refetch 
   } = useQuery({
     queryKey: ['bus-expense-report', dateRange.start_date, dateRange.end_date, selectedBusId],
-    queryFn: () => enhancedDashboardAPI.getBusExpenseReport(dateRange.start_date, dateRange.end_date, selectedBusId),
+    queryFn: () => DashboardAPI.getBusExpenseReport(dateRange.start_date, dateRange.end_date, selectedBusId),
     enabled: reportGenerated && !!dateRange.start_date && !!dateRange.end_date,
   });
 
@@ -527,9 +318,8 @@ export default function UnifiedBusExpenseReport() {
 
   const generateReportContent = (format) => {
     if (format === 'csv') {
-      let csv = 'Assignment ID,Bus,Driver,Conductor,Route,Departure Date,Return Date,Status,Fuel Cost,Maintenance Cost,Wash Cost,Total Cost,Notes\n';
+      let csv = 'Bus,Driver,Conductor,Route,Departure Date,Return Date,Status,Fuel Cost,Maintenance Cost,Wash Cost,Total Cost,Notes\n';
       assignments.forEach(assignment => {
-        csv += `${assignment.assignment_id},`;
         csv += `${assignment.bus_info.plate_number},`;
         csv += `${assignment.driver_info.name},`;
         csv += `${assignment.conductor_info.name},`;
@@ -549,55 +339,117 @@ export default function UnifiedBusExpenseReport() {
     }
   };
 
-  const generateDetailedReportContent = (format) => {
-    if (format === 'csv') {
-      let csv = 'Assignment ID,Bus,Driver,Route,Record Type,Record ID,Attendant,Details,Cost,Timestamp,Additional Info\n';
-      
-      assignments.forEach(assignment => {
-        const baseInfo = [
-          assignment.assignment_id,
-          assignment.bus_info.plate_number,
-          assignment.driver_info.name,
-          assignment.route_info.name
-        ];
+ const generateDetailedReportContent = (format) => {
+  if (format === 'csv') {
+    // Enhanced CSV with all assignment details including conductor and bus parks
+    let csv = 'Bus,Driver,Conductor,Route,Departure Date,Return Date,Status,Departure Park,Departure Location,Return Park,Return Location,Record Type,Attendant,Details,Cost,Timestamp,Additional Info\n';
+    
+    assignments.forEach(assignment => {
+      const baseInfo = [
+        assignment.bus_info.plate_number,
+        assignment.driver_info.name,
+        assignment.conductor_info.name,
+        assignment.route_info.name,
+        new Date(assignment.schedule.departure_time).toLocaleDateString(),
+        assignment.schedule.return_time ? new Date(assignment.schedule.return_time).toLocaleDateString() : 'N/A',
+        assignment.schedule.status,
+        assignment.departure_park_info ? assignment.departure_park_info.name : assignment.route_info.start_location,
+        assignment.departure_park_info ? assignment.departure_park_info.location : 'N/A',
+        assignment.return_park_info ? assignment.return_park_info.name : assignment.route_info.end_location,
+        assignment.return_park_info ? assignment.return_park_info.location : 'N/A'
+      ];
 
-        // Add fuel records
-        assignment.expenses.fuel.records.forEach(fuel => {
-          csv += baseInfo.join(',') + ',';
-          csv += `FUEL,${fuel.id},"${fuel.attendant_name}","${fuel.liters}L @ ${formatCurrency(fuel.price_per_liter)}/L",${fuel.amount},${fuel.timestamp},"Station: ${fuel.fuel_station_name}"\n`;
-        });
+      let hasRecords = false;
 
-        // Add maintenance records
-        assignment.expenses.maintenance.records.forEach(maint => {
-          csv += baseInfo.join(',') + ',';
-          csv += `MAINTENANCE,${maint.id},"${maint.attendant_name}","${maint.maintenance_type}",${maint.cost},${maint.timestamp},"${maint.description || 'N/A'}"\n`;
-        });
-
-        // Add wash records
-        assignment.expenses.wash.records.forEach(wash => {
-          csv += baseInfo.join(',') + ',';
-          csv += `WASH,${wash.id},"${wash.attendant_name}","${wash.service_type_display || 'Car Wash'}",${wash.cost},${wash.timestamp},"Station: ${wash.car_wash_station_name}"\n`;
-        });
-
-        // If no records, add summary
-        if (!assignment.expenses.fuel.records.length && 
-            !assignment.expenses.maintenance.records.length && 
-            !assignment.expenses.wash.records.length) {
-          csv += baseInfo.join(',') + ',';
-          csv += `SUMMARY,N/A,"N/A","No expense records",${assignment.total_cost},"${assignment.schedule.departure_time}","${assignment.notes || 'N/A'}"\n`;
-        }
+      // Add fuel records
+      assignment.expenses.fuel.records.forEach(fuel => {
+        hasRecords = true;
+        csv += baseInfo.join(',') + ',';
+        csv += `FUEL,"${fuel.attendant_name}","${fuel.liters}L @ ${formatCurrency(fuel.price_per_liter)}/L",${fuel.amount},${fuel.timestamp},"Station: ${fuel.fuel_station_name}${fuel.receipt_number && fuel.receipt_number !== 'N/A' ? ' | Receipt: ' + fuel.receipt_number : ''}"\n`;
       });
-      
-      return csv;
-    } else {
-      return JSON.stringify({
-        bus_info: selectedBus,
+
+      // Add maintenance records
+      assignment.expenses.maintenance.records.forEach(maint => {
+        hasRecords = true;
+        csv += baseInfo.join(',') + ',';
+        csv += `MAINTENANCE,"${maint.attendant_name}","${maint.maintenance_type}",${maint.cost},${maint.timestamp},"${maint.description || 'N/A'}"\n`;
+      });
+
+      // Add wash records
+      assignment.expenses.wash.records.forEach(wash => {
+        hasRecords = true;
+        csv += baseInfo.join(',') + ',';
+        csv += `WASH,"${wash.attendant_name}","${wash.service_type_display || 'Car Wash'}",${wash.cost},${wash.timestamp},"Station: ${wash.car_wash_station_name}${wash.notes && wash.notes !== 'N/A' ? ' | Notes: ' + wash.notes : ''}"\n`;
+      });
+
+      // If no expense records, add assignment summary with full details
+      if (!hasRecords) {
+        csv += baseInfo.join(',') + ',';
+        csv += `ASSIGNMENT_SUMMARY,"${assignment.driver_info.name} & ${assignment.conductor_info.name}","No expense records - Total Cost",${assignment.total_cost},"${assignment.schedule.departure_time}","${assignment.notes || 'N/A'}"\n`;
+      }
+    });
+    
+    return csv;
+  } else {
+    // Enhanced JSON with complete assignment details
+    return JSON.stringify({
+      report_metadata: {
+        generated_at: new Date().toISOString(),
+        report_type: selectedBus ? 'single_bus' : 'all_buses',
+        bus_info: selectedBus || null,
         report_period: report.date_range,
-        summary: summary,
-        detailed_records: assignments
-      }, null, 2);
-    }
-  };
+        total_assignments: assignments.length
+      },
+      summary: summary,
+      detailed_assignments: assignments.map(assignment => ({
+        assignment_info: {
+          id: assignment.assignment_id,
+          status: assignment.schedule.status,
+          departure_time: assignment.schedule.departure_time,
+          return_time: assignment.schedule.return_time,
+          notes: assignment.notes
+        },
+        bus_info: assignment.bus_info,
+        crew_info: {
+          driver: assignment.driver_info,
+          conductor: assignment.conductor_info
+        },
+        route_info: assignment.route_info,
+        location_tracking: {
+          departure_park: assignment.departure_park_info || {
+            name: assignment.route_info.start_location,
+            location: 'Location details not available',
+            contact: null
+          },
+          return_park: assignment.return_park_info || {
+            name: assignment.route_info.end_location,
+            location: 'Location details not available', 
+            contact: null
+          }
+        },
+        expense_breakdown: {
+          fuel: {
+            total_cost: assignment.expenses.fuel.total_cost,
+            total_liters: assignment.expenses.fuel.total_liters,
+            records_count: assignment.expenses.fuel.records.length,
+            detailed_records: assignment.expenses.fuel.records
+          },
+          maintenance: {
+            total_cost: assignment.expenses.maintenance.total_cost,
+            records_count: assignment.expenses.maintenance.records.length,
+            detailed_records: assignment.expenses.maintenance.records
+          },
+          wash: {
+            total_cost: assignment.expenses.wash.total_cost,
+            records_count: assignment.expenses.wash.records.length,
+            detailed_records: assignment.expenses.wash.records
+          }
+        },
+        total_assignment_cost: assignment.total_cost
+      }))
+    }, null, 2);
+  }
+};
 
   // Calculate metrics
   const calculateMetrics = () => {
@@ -842,7 +694,6 @@ export default function UnifiedBusExpenseReport() {
       {reportLoading && (
         <Card>
           <CardContent className="p-8 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-muted-foreground">Generating expense report...</p>
           </CardContent>
         </Card>
@@ -871,7 +722,7 @@ export default function UnifiedBusExpenseReport() {
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold text-blue-900">{selectedBus.plate_number}</h2>
-                    <p className="text-blue-700">{selectedBus.model} • Capacity: {selectedBus.capacity} passengers</p>
+                    <p className="text-blue-700">{selectedBus.model}</p>
                   </div>
                   <div className="ml-auto">
                     <Badge variant="outline" className="text-blue-700 border-blue-300">
@@ -1105,7 +956,7 @@ export default function UnifiedBusExpenseReport() {
                             <div>
                               <h3 className="text-xl font-bold">{assignment.bus_info.plate_number}</h3>
                               <p className="text-sm text-muted-foreground">
-                                {assignment.bus_info.model} • Capacity: {assignment.bus_info.capacity}
+                                {assignment.bus_info.model}
                               </p>
                             </div>
                           </div>
@@ -1392,7 +1243,7 @@ export default function UnifiedBusExpenseReport() {
                 </p>
                 
                 {summary.grand_total > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div className="bg-white p-3 rounded shadow-sm">
                       <p className="text-muted-foreground">Most Expensive Category</p>
                       <p className="font-bold text-lg">
@@ -1412,29 +1263,6 @@ export default function UnifiedBusExpenseReport() {
                       <p className="font-bold text-lg">{formatCurrency(summary.average_cost_per_assignment)}</p>
                       <p className="text-xs text-muted-foreground">
                         {summary.total_assignments > 1 ? 'across all trips' : 'single trip'}
-                      </p>
-                    </div>
-                    <div className="bg-white p-3 rounded shadow-sm">
-                      <p className="text-muted-foreground">
-                        {selectedBus && activeTab === 'single-bus' ? 'Performance Rating' : 'Fuel Efficiency'}
-                      </p>
-                      <p className="font-bold text-lg">
-                        {selectedBus && activeTab === 'single-bus' 
-                          ? (metrics.completionRate >= 90 ? '🟢 Excellent' : 
-                             metrics.completionRate >= 75 ? '🟡 Good' : 
-                             metrics.completionRate >= 50 ? '🟠 Fair' : '🔴 Poor')
-                          : (summary.total_fuel_liters > 0 
-                             ? `${summary.total_fuel_liters}L total`
-                             : 'No fuel data')
-                        }
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {selectedBus && activeTab === 'single-bus' 
-                          ? `${metrics.completionRate?.toFixed(1) || 0}% completion rate`
-                          : summary.average_fuel_price > 0 
-                            ? `Avg ${formatCurrency(summary.average_fuel_price)}/L`
-                            : 'N/A'
-                        }
                       </p>
                     </div>
                   </div>

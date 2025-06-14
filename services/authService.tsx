@@ -41,7 +41,6 @@ class AuthService {
       console.error('❌ Profile fetch failed:', errorData);
       
       if (response.status === 401) {
-        // Token is invalid/expired
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         throw new Error('Session expired');

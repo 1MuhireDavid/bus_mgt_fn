@@ -16,8 +16,9 @@ export interface User {
   is_active: boolean;
   createAt: string;
   company: string
-  is_superuser: boolean
-  phone: string
+  is_superuser: boolean;
+  bus_park_name: string;
+  phone: string;
 }
 export interface Bus {
   id: string;

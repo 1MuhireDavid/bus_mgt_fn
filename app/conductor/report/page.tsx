@@ -204,7 +204,6 @@ export default function BusExpenseReport() {
       {isLoading && (
         <Card>
           <CardContent className="p-8 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-muted-foreground">Generating expense report...</p>
           </CardContent>
         </Card>
@@ -361,7 +360,7 @@ export default function BusExpenseReport() {
                             <h4 className="font-semibold mb-2">Bus & Driver</h4>
                             <div className="space-y-1 text-sm">
                               <p><span className="text-muted-foreground">Bus:</span> {assignment.bus_info.plate_number}</p>
-                              <p><span className="text-muted-foreground">Driver:</span> {assignment.driver_info.name}</p>
+                              <p><span className="text-muted-foreground">Driver:</span> {assignment.driver_info.name} - {assignment.driver_info.phone_number}</p>
                               <p><span className="text-muted-foreground">Conductor:</span> {assignment.conductor_info.name}</p>
                             </div>
                           </div>

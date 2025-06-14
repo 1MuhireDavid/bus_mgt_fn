@@ -31,76 +31,10 @@ api.interceptors.response.use(
   }
 );
 
-// Enhanced Bus API with detailed reporting
-export const enhancedBusAPI = {
-  // Get enhanced bus detail with expenses for a specific date
-  getBusDetailWithExpenses: (busId: string, date?: string) => {
-    const params = date ? `?date=${date}` : '';
-    return api.get(`/fleet/buses/${busId}/detail_with_expenses/${params}`);
-  },
-
-  // Get comprehensive single bus report
-  getSingleBusReport: (busId: string, params?: {
-    start_date?: string;
-    end_date?: string;
-    format?: 'json' | 'csv';
-  }) => {
-    const searchParams = new URLSearchParams();
-    if (params?.start_date) searchParams.append('start_date', params.start_date);
-    if (params?.end_date) searchParams.append('end_date', params.end_date);
-    if (params?.format) searchParams.append('format', params.format);
-    
-    const queryString = searchParams.toString();
-    const url = `/reports/buses/${busId}/detailed-report/${queryString ? `?${queryString}` : ''}`;
-    
-    if (params?.format === 'csv') {
-      return api.get(url, { responseType: 'blob' });
-    }
-    return api.get(url);
-  },
-
-  // Download single bus report
-  downloadBusReport: async (busId: string, format: 'json' | 'csv', params?: {
-    start_date?: string;
-    end_date?: string;
-  }) => {
-    try {
-      const response = await enhancedBusAPI.getSingleBusReport(busId, {
-        ...params,
-        format
-      });
-      
-      // Create download
-      const blob = new Blob([response.data], {
-        type: format === 'csv' ? 'text/csv' : 'application/json'
-      });
-      
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      
-      // Get bus info for filename
-      const busResponse = await api.get(`/fleet/buses/${busId}/`);
-      const plateNumber = busResponse.data.plate_number || busId;
-      const timestamp = new Date().toISOString().slice(0, 10);
-      
-      link.download = `bus_report_${plateNumber}_${timestamp}.${format}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-      return { success: true };
-    } catch (error) {
-      console.error('Download failed:', error);
-      return { success: false, error };
-    }
-  }
-};
 
 // Enhanced Dashboard API with new bus park information
-export const enhancedDashboardAPI = {
-  // Enhanced bus expense report with bus park information
+export const DashboardAPI = {
+
   getBusExpenseReport: (startDate: string, endDate: string, busId?: string) => {
     const params = new URLSearchParams({
       start_date: startDate,
@@ -114,7 +48,6 @@ export const enhancedDashboardAPI = {
     return api.get(`/reports/bus-expenses/?${params.toString()}`);
   },
 
-  // Export enhanced bus expense report
   exportBusExpenseReport: async (
     startDate: string, 
     endDate: string, 
@@ -147,7 +80,7 @@ export const enhancedDashboardAPI = {
       link.download = `bus_expense_report_${startDate}_to_${endDate}.${format}`;
       document.body.appendChild(link);
       link.click();
-      cument.body.removeChild(link);
+      document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
       
       return { success: true };
@@ -172,9 +105,109 @@ export const busAPI = {
     api.post(`/fleet/buses/${id}/set_status/`, { status }),
   getBusParks: () => api.get('/fleet/bus-parks/'),
   getBusDetailWithExpenses: (busId: string, date?: string) => {
-  const params = date ? `?date=${date}` : '';
-  return api.get(`/fleet/buses/${busId}/detail_with_expenses/${params}`);
-},
+    const params = date ? `?date=${date}` : '';
+    return api.get(`/fleet/buses/${busId}/detail_with_expenses/${params}`);
+  },
+  // Get comprehensive single bus report
+  getSingleBusReport: (busId: string, params?: {
+    start_date?: string;
+    end_date?: string;
+    format?: 'json' | 'csv';
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.start_date) searchParams.append('start_date', params.start_date);
+    if (params?.end_date) searchParams.append('end_date', params.end_date);
+    if (params?.format) searchParams.append('format', params.format);
+    
+    const queryString = searchParams.toString();
+    const url = `/reports/buses/${busId}/detailed-report/${queryString ? `?${queryString}` : ''}`;
+    
+    if (params?.format === 'csv') {
+      return api.get(url, { responseType: 'blob' });
+    }
+    return api.get(url);
+  },
+
+  // Download single bus report
+  downloadBusReport: async (busId: string, format: 'json' | 'csv', params?: {
+    start_date?: string;
+    end_date?: string;
+  }) => {
+    try {
+      const response = await busAPI.getSingleBusReport(busId, {
+        ...params,
+        format
+      });
+      
+      // Create download
+      const blob = new Blob([response.data], {
+        type: format === 'csv' ? 'text/csv' : 'application/json'
+      });
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Get bus info for filename
+      const busResponse = await api.get(`/fleet/buses/${busId}/`);
+      const plateNumber = busResponse.data.plate_number || busId;
+      const timestamp = new Date().toISOString().slice(0, 10);
+      
+      link.download = `bus_report_${plateNumber}_${timestamp}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Download failed:', error);
+      return { success: false, error };
+    }
+  },
+  // Get buses by maintenance status
+  getByMaintenanceStatus: (status) => 
+    api.get(`/fleet/buses/by_maintenance_status/?status=${status}`),
+  
+  // Get buses at specific garage
+  getBusesAtGarage: (garageId) => 
+    api.get(`/fleet/buses/at_garage/?garage_id=${garageId}`),
+  
+  // Move bus to maintenance garage
+  moveToMaintenance: (busId, data) => 
+    api.post(`/fleet/buses/${busId}/move_to_maintenance/`, data),
+  
+  // Return bus from maintenance
+  returnFromMaintenance: (busId, data) => 
+    api.post(`/fleet/buses/${busId}/return_from_maintenance/`, data),
+  
+  // Get bus maintenance history
+  getMaintenanceHistory: (busId, params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        searchParams.append(key, value.toString());
+      }
+    });
+    return api.get(`/fleet/buses/${busId}/maintenance_history/?${searchParams.toString()}`);
+  },
+  
+  // Get bus current maintenance details
+  getCurrentMaintenance: (busId) => 
+    api.get(`/fleet/buses/${busId}/current_maintenance/`),
+  
+  // Get buses due for maintenance
+  getDueForMaintenance: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        searchParams.append(key, value.toString());
+      }
+    });
+    return api.get(`/fleet/buses/due_for_maintenance/?${searchParams.toString()}`);
+  }
+
+
 };
 
 // Add new API endpoints for drivers
@@ -233,13 +266,87 @@ export const maintenanceAPI = {
   create: (data: any) => api.post('/maintenance/', data),
   update: (id: string, data: any) => api.put(`/maintenance/${id}/`, data),
   delete: (id: string) => api.delete(`/maintenance/${id}/`),
+  startMaintenance: (data: any) => api.post('/maintenance/start_maintenance/', data),
+  completeMaintenance: (maintenanceId: string) =>
+    api.post(`/maintenance/${maintenanceId}/complete_maintenance/`),
+  
+  getGarageDashboard: () => api.get('/maintenance/garage_dashboard/'),
+  addItems: (maintenanceId: string, items: Array<{
+    stock_item_id?: string;
+    description: string;
+    quantity_used: number;
+    unit_cost: number;
+    source: 'company_stock' | 'external_purchase';
+  }>) => api.post(`/maintenance/${maintenanceId}/add_items/`, { items }),
+  updateMaintenanceStatus: (maintenanceId: string, data: any) =>
+    api.patch(`/maintenance/${maintenanceId}/`, data),
+  getStatistics: () => api.get('/maintenance/statistics/'),
 };
+
+export const maintenanceItemsAPI = {
+  // Get all maintenance items
+  getAll: () => api.get('/maintenance-items/'),
+  
+  // Get items by maintenance type
+  getByMaintenanceType: (typeId: string) => 
+    api.get(`/maintenance-types/${typeId}/items/`),
+  
+  // Create new maintenance item
+  create: (data: {
+    name: string;
+    description?: string;
+    unit_price: number;
+    unit: string;
+    maintenance_types: string[];
+    stock_item_id?: string;
+    is_consumable: boolean;
+    minimum_quantity?: number;
+  }) => api.post('/maintenance-items/', data),
+  
+  // Update maintenance item
+  update: (id: string, data: any) => 
+    api.patch(`/maintenance-items/${id}/`, data),
+  
+  // Delete maintenance item
+  delete: (id: string) => 
+    api.delete(`/maintenance-items/${id}/`),
+  
+  // Get items with current stock levels
+  getWithStockLevels: () => 
+    api.get('/maintenance-items/with_stock_levels/'),
+  
+  // Search items
+  search: (query: string) => 
+    api.get(`/maintenance-items/search/?q=${encodeURIComponent(query)}`),
+    // Bulk associate items with maintenance types
+  bulkAssociateTypes: (itemId: string, typeIds: string[]) =>
+    api.post(`/maintenance-items/${itemId}/associate_types/`, { type_ids: typeIds }),
+  
+  // Remove associations
+  removeTypeAssociations: (itemId: string, typeIds: string[]) =>
+    api.post(`/maintenance-items/${itemId}/remove_types/`, { type_ids: typeIds }),
+};
+
 export const maintenanceTypesAPI = {
   getAll: () => api.get('/maintenance-types/'),
   getById: (id: string) => api.get(`/maintenance-types/${id}/`),
   create: (data: any) => api.post('/maintenance-types/', data),
   update: (id: string, data: any) => api.put(`/maintenance-types/${id}/`, data),
   delete: (id: string) => api.delete(`/maintenance-types/${id}/`),
+
+    // Get maintenance type with associated items
+  getWithItems: (id: string) => 
+    api.get(`/maintenance-types/${id}/with_items/`),
+  
+  // Add items to maintenance type
+  addItems: (typeId: string, itemIds: string[]) => 
+    api.post(`/maintenance-types/${typeId}/add_items/`, { item_ids: itemIds }),
+  
+  // Remove items from maintenance type
+  removeItems: (typeId: string, itemIds: string[]) => 
+    api.post(`/maintenance-types/${typeId}/remove_items/`, { item_ids: itemIds }),
+  addItemsToTypes: (itemId: string, typeIds: string[]) =>
+    api.post(`/maintenance-items/${itemId}/bulk_associate_types/`, { type_ids: typeIds }),
 };
 
 
@@ -381,13 +488,11 @@ export const userAPI = {
 
 // Car Wash Station Management API
 export const carWashStationAPI = {
-  // Get all car wash stations
   getAll: () => api.get('/operations/car-washes/'),
-  
+
   // Get single car wash station
   getById: (id: string) => api.get(`/operations/car-washes/${id}/`),
   
-  // Create car wash station
   create: (data: {
     name: string;
     location: string;
@@ -395,11 +500,30 @@ export const carWashStationAPI = {
     services_offered?: string[];
   }) => api.post('/operations/car-washes/', data),
   
-  // Update car wash station
   update: (id: string, data: any) => api.patch(`/operations/car-washes/${id}/`, data),
   
-  // Delete car wash station
   delete: (id: string) => api.delete(`/operations/car-washes/${id}/`),
+
+  getDailyRecords: (stationId:string, date:string) => 
+    api.get(`/operations/car-washes/${stationId}/daily_records/?date=${date}`),
+  
+  getAttendants: (stationId:string) => 
+    api.get(`/operations/car-washes/${stationId}/attendants/`),
+  
+  getWeeklyStats: (stationId:string) => 
+    api.get(`/operations/car-washes/${stationId}/weekly_stats/`),
+  
+  getMonthlyStats: (stationId:string) => 
+    api.get(`/operations/car-washes/${stationId}/monthly_stats/`),
+
+  addAttendant: (stationId:string, userId:number) => 
+    api.post(`/operations/car-wash-stations/${stationId}/add_attendant/`, {
+      user_id: userId
+    }),
+  
+  removeAttendant: (stationId:string, attendantId:string) => 
+    api.delete(`/operations/car-wash-stations/${stationId}/remove_attendant/?attendant_id=${attendantId}`),
+
 };
 
 export const serviceAttendantAPI = {
@@ -418,6 +542,7 @@ export const serviceAttendantAPI = {
     }
     return api.get(`/operations/service-attendants/by_type/?${searchParams.toString()}`);
   },
+
   
   // Create service attendant
   create: (data: {
@@ -432,13 +557,10 @@ export const serviceAttendantAPI = {
     hourly_rate?: number;
   }) => api.post('/operations/service-attendants/', data),
   
-  // Update service attendant
   update: (id: string, data: any) => api.patch(`/operations/service-attendants/${id}/`, data),
   
-  // Delete service attendant
   delete: (id: string) => api.delete(`/operations/service-attendants/${id}/`),
   
-  // Get attendant performance
   getPerformance: (id: string, days?: number) => {
     const params = days ? `?days=${days}` : '';
     return api.get(`/operations/service-attendants/${id}/performance/${params}`);
@@ -449,6 +571,34 @@ export const serviceAttendantAPI = {
     api.post('/operations/service-attendants/get_location_choices/', {
       attendant_type: attendantType
     }),
+
+  // Get maintenance attendant profile
+  getMaintenanceProfile: () => api.get('/operations/service-attendants/maintenance_profile/'),
+  
+  // Get attendant's current workload
+  getCurrentWorkload: (attendantId) => 
+    api.get(`/operations/service-attendants/${attendantId}/current_workload/`),
+  
+  // Get attendant performance for maintenance
+  getMaintenancePerformance: (attendantId, params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        searchParams.append(key, value.toString());
+      }
+    });
+    return api.get(`/operations/service-attendants/${attendantId}/maintenance_performance/?${searchParams.toString()}`);
+  },
+  
+  // Assign attendant to garage
+  assignToGarage: (attendantId, garageId) => 
+    api.post(`/operations/service-attendants/${attendantId}/assign_to_garage/`, {
+      garage_id: garageId
+    }),
+  
+  // Get available maintenance attendants
+  getAvailableForMaintenance: () => 
+    api.get('/operations/service-attendants/available_for_maintenance/')
 };
 
 // Updated Location APIs
@@ -459,7 +609,6 @@ export const fuelStationAPI = {
   update: (id: string, data: any) => api.patch(`/operations/fuel-stations/${id}/`, data),
   delete: (id: string) => api.delete(`/operations/fuel-stations/${id}/`),
   
-  // Get attendants at this station
   getAttendants: (id: string) => api.get(`/operations/fuel-stations/${id}/attendants/`),
   
   // Get daily records for this station
@@ -467,6 +616,61 @@ export const fuelStationAPI = {
     const params = date ? `?date=${date}` : '';
     return api.get(`/operations/fuel-stations/${id}/daily_records/${params}`);
   },
+    // Get weekly statistics
+  getWeeklyStats: (id: string, weeks?: number) => {
+    const params = weeks ? `?weeks=${weeks}` : '';
+    return api.get(`/operations/fuel-stations/${id}/weekly_stats/${params}`);
+  },
+
+  // Get monthly statistics
+  getMonthlyStats: (id: string, months?: number) => {
+    const params = months ? `?months=${months}` : '';
+    return api.get(`/operations/fuel-stations/${id}/monthly_stats/${params}`);
+  },
+
+  // Get attendant performance
+  getAttendantPerformance: (id: string, days?: number) => {
+    const params = days ? `?days=${days}` : '';
+    return api.get(`/operations/fuel-stations/${id}/attendant_performance/${params}`);
+  },
+
+  // Add attendant to station
+  addAttendant: (stationId: string, userId: number) => 
+    api.post(`/operations/fuel-stations/${stationId}/add_attendant/`, {
+      user_id: userId
+    }),
+  
+  // Remove attendant from station
+  removeAttendant: (stationId: string, attendantId: string) => 
+    api.delete(`/operations/fuel-stations/${stationId}/remove_attendant/?attendant_id=${attendantId}`),
+
+  // Get dashboard summary for all fuel stations
+  getDashboardSummary: () => api.get('/operations/fuel-stations/dashboard_summary/'),
+
+  getFuelPrices: (stationId: string) => 
+    api.get(`/operations/fuel-stations/${stationId}/fuel_prices/`),
+
+  // Get current active prices for this station
+  getCurrentPrices: (stationId: string) => 
+    api.get(`/operations/fuel-stations/${stationId}/current_prices/`),
+
+  // Add new fuel price to station
+  addFuelPrice: (stationId: string, data: {
+    fuel_type: 'petrol' | 'diesel' | 'super' | 'premium';
+    price_per_liter: number;
+    effective_date?: string;
+    is_active?: boolean;
+  }) => api.post(`/operations/fuel-stations/${stationId}/add_fuel_price/`, data),
+
+  // Bulk update multiple fuel prices
+  bulkUpdatePrices: (stationId: string, prices: Array<{
+    fuel_type: 'petrol' | 'diesel' | 'super' | 'premium';
+    price_per_liter: number;
+    effective_date?: string;
+    is_active?: boolean;
+  }>) => api.post(`/operations/fuel-stations/${stationId}/bulk_update_prices/`, {
+    prices
+  })
 };
 
 
@@ -479,8 +683,117 @@ export const maintenanceGarageAPI = {
   
   // Get attendants at this garage
   getAttendants: (id: string) => api.get(`/maintenance-garages/${id}/attendants/`),
-};
 
+  // Get garage assigned to current user
+  getMyGarage: () => api.get('/maintenance-garages/my_garage/'),
+  
+  // Get buses currently at a specific garage
+  getBusesAtGarage: (garageId) => api.get(`/maintenance-garages/${garageId}/buses_at_garage/`),
+  
+  // Get available buses for maintenance
+  getAvailableBuses: () => api.get('/fleet/buses/?status=active&available_for_maintenance=true'),
+  
+  // Admin overview of all garages
+  getAdminOverview: () => api.get('/maintenance-garages/admin_overview/'),
+  
+  // Get garage statistics
+  getGarageStats: (garageId, params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        searchParams.append(key, value.toString());
+      }
+    });
+    return api.get(`/maintenance-garages/${garageId}/stats/?${searchParams.toString()}`);
+  },
+    // Get garage performance metrics
+  getGaragePerformance: (garageId, days = 30) => 
+    api.get(`/maintenance-garages/${garageId}/performance/?days=${days}`),
+  
+  // Get workload distribution
+  getWorkloadDistribution: () => api.get('/maintenance-garages/workload_distribution/')
+};
+export const maintenanceReportAPI = {
+  // Get garage productivity report
+  getGarageProductivityReport: (garageId, params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        searchParams.append(key, value.toString());
+      }
+    });
+    return api.get(`/reports/garage_productivity/${garageId}/?${searchParams.toString()}`);
+  },
+  
+  // Get maintenance cost analysis
+  getMaintenanceCostAnalysis: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        searchParams.append(key, value.toString());
+      }
+    });
+    return api.get(`/reports/maintenance_cost_analysis/?${searchParams.toString()}`);
+  },
+  
+  // Get downtime report
+  getDowntimeReport: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        searchParams.append(key, value.toString());
+      }
+    });
+    return api.get(`/reports/bus_downtime/?${searchParams.toString()}`);
+  },
+  
+  // Get maintenance schedule report
+  getMaintenanceSchedule: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        searchParams.append(key, value.toString());
+      }
+    });
+    return api.get(`/reports/maintenance_schedule/?${searchParams.toString()}`);
+  },
+  
+  // Export maintenance report
+  exportMaintenanceReport: async (reportType, params = {}, format = 'csv') => {
+    try {
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+          searchParams.append(key, value.toString());
+        }
+      });
+      searchParams.append('format', format);
+      
+      const response = await api.get(`/reports/maintenance_export/${reportType}/?${searchParams.toString()}`, {
+        responseType: 'blob'
+      });
+      
+      // Create download
+      const blob = new Blob([response.data], {
+        type: format === 'csv' ? 'text/csv' : 'application/json'
+      });
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `maintenance_${reportType}_${new Date().toISOString().slice(0, 10)}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Export failed:', error);
+      return { success: false, error };
+    }
+  }
+};
 // Updated Car Wash API (now uses normalized structure)
 export const carWashAPI = {
   // Get all car wash records
@@ -519,13 +832,12 @@ export const fuelAPI = {
   // Get current user's records (for attendant dashboard)
   getMyRecords: () => api.get('/operations/fuel-records/my_records/'),
   
-  // Create new fuel record
+  // Create new fuel record with simplified data structure
   createRecord: (data: {
     bus_assignment: string;
-    attendant: string;  // ServiceAttendant ID
-    fuel_station: string;
+    fuel_type: 'petrol' | 'diesel' | 'super' | 'premium';
+    fuel_price: string;  // FuelPrice ID
     liters: number;
-    price_per_liter: number;
     receipt_number?: string;
     notes?: string;
   }) => api.post('/operations/fuel-records/', data),
@@ -540,8 +852,73 @@ export const fuelAPI = {
     if (days) params.append('days', days.toString());
     return api.get(`/operations/fuel-records/statistics/?${params.toString()}`);
   },
-};
 
+  // Get available prices for current user's station
+  getAvailablePrices: () => api.get('/operations/fuel-records/available_prices/'),
+
+  // Get active assignments for fuel records
+  getActiveAssignments: () => api.get('/operations/assignments/active_for_fuel/'),
+
+  // Get price history
+  getPriceHistory: (params?: {
+    fuel_type?: string;
+    station_id?: string;
+    days?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.fuel_type) searchParams.append('fuel_type', params.fuel_type);
+    if (params?.station_id) searchParams.append('station_id', params.station_id);
+    if (params?.days) searchParams.append('days', params.days.toString());
+    return api.get(`/operations/fuel-records/price_history/?${searchParams.toString()}`);
+  },
+
+  // Get fuel type statistics
+  getFuelTypeStatistics: (days?: number) => {
+    const params = days ? `?days=${days}` : '';
+    return api.get(`/operations/fuel-records/fuel_type_statistics/${params}`);
+  }
+};
+export const fuelPriceAPI = {
+  // Get all fuel prices
+  getAll: (params?: {
+    station_id?: string;
+    fuel_type?: string;
+    is_active?: boolean;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.station_id) searchParams.append('station_id', params.station_id);
+    if (params?.fuel_type) searchParams.append('fuel_type', params.fuel_type);
+    if (params?.is_active !== undefined) searchParams.append('is_active', params.is_active.toString());
+    return api.get(`/operations/fuel-prices/?${searchParams.toString()}`);
+  },
+
+  // Get single fuel price
+  getById: (id: string) => api.get(`/operations/fuel-prices/${id}/`),
+
+  // Create new fuel price
+  create: (data: {
+    fuel_station: string;
+    fuel_type: 'petrol' | 'diesel' | 'super' | 'premium';
+    price_per_liter: number;
+    effective_date?: string;
+    is_active?: boolean;
+  }) => api.post('/operations/fuel-prices/', data),
+
+  // Update fuel price
+  update: (id: string, data: any) => api.patch(`/operations/fuel-prices/${id}/`, data),
+
+  // Delete fuel price
+  delete: (id: string) => api.delete(`/operations/fuel-prices/${id}/`),
+
+  // Get fuel prices grouped by station
+  getByStation: () => api.get('/operations/fuel-prices/by_station/'),
+
+  // Set fuel price as active (deactivates others of same type)
+  setActive: (id: string) => api.post(`/operations/fuel-prices/${id}/set_active/`),
+
+  // Deactivate fuel price
+  deactivate: (id: string) => api.post(`/operations/fuel-prices/${id}/deactivate/`)
+};
 // User Service Roles API
 export const userServiceRoleAPI = {
   // Get current user's service roles
@@ -639,3 +1016,96 @@ export const multiTenantStockAPI = {
   getCompanySummary: () => api.get('/multi-tenant/stock/company_summary/'),
 };
 
+// Enhanced Bus Park API using your backend structure
+export const busParkAPI = {
+  getAll: () => api.get('/fleet/bus-parks/'),
+  getById: (id) => api.get(`/fleet/bus-parks/${id}/`),
+  getBusesAtPark: (parkId) => api.get(`/fleet/bus-parks/${parkId}/buses/`),
+  create: (data) => api.post('/fleet/bus-parks/', data),
+  update: (id, data) => api.patch(`/fleet/bus-parks/${id}/`, data),
+  delete: (id) => api.delete(`/fleet/bus-parks/${id}/`),
+  toggleStatus: (id) => api.post(`/fleet/bus-parks/${id}/toggle_status/`),
+  getStats: () => api.get('/fleet/bus-parks/stats/'),
+  getOccupancy: (parkId) => api.get(`/fleet/bus-parks/${parkId}/occupancy/`),
+  getActivityLog: (parkId) => api.get(`/fleet/bus-parks/${parkId}/activity_log/`),
+  getActiveParks: () => api.get('/fleet/bus-parks/?is_active=true'),
+};
+
+export const adminMaintenanceAPI = {
+  // Get system-wide maintenance overview
+  getSystemOverview: () => api.get('/admin/maintenance/system_overview/'),
+  
+  // Get garage comparison report
+  getGarageComparison: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        searchParams.append(key, value.toString());
+      }
+    });
+    return api.get(`/admin/maintenance/garage_comparison/?${searchParams.toString()}`);
+  },
+  
+  // Get maintenance efficiency metrics
+  getEfficiencyMetrics: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        searchParams.append(key, value.toString());
+      }
+    });
+    return api.get(`/admin/maintenance/efficiency_metrics/?${searchParams.toString()}`);
+  },
+  
+  // Get resource utilization
+  getResourceUtilization: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        searchParams.append(key, value.toString());
+      }
+    });
+    return api.get(`/admin/maintenance/resource_utilization/?${searchParams.toString()}`);
+  },
+  
+  // Get maintenance alerts
+  getMaintenanceAlerts: () => api.get('/admin/maintenance/alerts/'),
+  
+  // Get overdue maintenance
+  getOverdueMaintenance: () => api.get('/admin/maintenance/overdue/'),
+  
+  // Reassign maintenance work
+  reassignMaintenance: (maintenanceId, data) => 
+    api.post(`/admin/maintenance/${maintenanceId}/reassign/`, data),
+  
+  // Emergency maintenance assignment
+  emergencyAssignment: (data) => 
+    api.post('/admin/maintenance/emergency_assignment/', data)
+};
+
+// Real-time maintenance tracking API
+export const maintenanceTrackingAPI = {
+  // Get real-time garage status
+  getRealTimeStatus: (garageId) => 
+    api.get(`/tracking/garage/${garageId}/real_time_status/`),
+  
+  // Update maintenance progress
+  updateProgress: (maintenanceId, data) => 
+    api.post(`/tracking/maintenance/${maintenanceId}/update_progress/`, data),
+  
+  // Get maintenance timeline
+  getMaintenanceTimeline: (maintenanceId) => 
+    api.get(`/tracking/maintenance/${maintenanceId}/timeline/`),
+  
+  // Add maintenance log entry
+  addLogEntry: (maintenanceId, data) => 
+    api.post(`/tracking/maintenance/${maintenanceId}/add_log/`, data),
+  
+  // Get active maintenance across all garages
+  getActiveMaintenance: () => 
+    api.get('/tracking/active_maintenance/'),
+  
+  // Get maintenance queue
+  getMaintenanceQueue: (garageId) => 
+    api.get(`/tracking/garage/${garageId}/queue/`)
+};

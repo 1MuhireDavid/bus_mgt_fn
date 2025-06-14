@@ -1,9 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatsCard } from "@/components/dashboard/StatsCard";
-import { Badge } from "@/components/ui/badge";
+import { StatsCard } from "@/components/ui/StatsCard";
 import { Button } from "@/components/ui/button";
 import { assignmentAPI } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
@@ -35,14 +33,6 @@ const formatTime = (date) => {
   });
 };
 
-const formatDateTime = (date) => {
-  return new Date(date).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-};
 
 export default function ConductorDashboard() {
   const { user } = useAuthStore();
@@ -86,8 +76,8 @@ export default function ConductorDashboard() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Conductor Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back, {user?.first_name}!</p>
+          <h1 className="text-3xl font-bold">Conductor Dashboard </h1>
+          <p className="text-muted-foreground">Welcome back, {user?.first_name}!- {user?.bus_park_name}</p>
         </div>
         <div className="flex items-center gap-4">
           <Button 
@@ -95,7 +85,7 @@ export default function ConductorDashboard() {
             className="flex items-center gap-2"
           >
             <Plus className="h-4 w-4" />
-            Create Assignment
+            Create Schedule
           </Button>
           <div className="text-sm text-muted-foreground">
             {formatDate(new Date())}
@@ -106,7 +96,7 @@ export default function ConductorDashboard() {
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
-          title="Today's Assignments"
+          title="Today's Schedules"
           value={todayAssignments.length}
           icon={Calendar}
           description="Scheduled for today"
@@ -118,7 +108,7 @@ export default function ConductorDashboard() {
           description="Successfully finished"
         />
         <StatsCard
-          title="Active Assignment"
+          title="Active Schedule"
           value={activeAssignment ? "1" : "0"}
           icon={Bus}
           description="Currently in progress"
@@ -137,7 +127,7 @@ export default function ConductorDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-blue-700">
               <Bus className="h-5 w-5" />
-              Current Assignment
+              Current Schedule
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -189,13 +179,13 @@ export default function ConductorDashboard() {
     <div className="space-y-3">
       {todayAssignments.length === 0 ? (
         <div className="text-center py-6">
-          <p className="text-sm text-muted-foreground mb-3">No assignments for today</p>
+          <p className="text-sm text-muted-foreground mb-3">No Schedules for today</p>
           <Button 
             size="sm" 
             onClick={() => router.push('/conductor/assignments/create')}
           >
             <Plus className="h-4 w-4 mr-2" />
-            Create New Assignment
+            Create New Schedule
           </Button>
         </div>
       ) : (
@@ -232,7 +222,7 @@ export default function ConductorDashboard() {
               onClick={() => router.push('/conductor/assignments/create')}
             >
               <Plus className="h-6 w-6" />
-              Create Assignment
+              Create Schedule
             </Button>
             <Button 
               variant="outline" 
@@ -240,7 +230,7 @@ export default function ConductorDashboard() {
               onClick={() => router.push('/conductor/assignments')}
             >
               <Calendar className="h-6 w-6" />
-              View All Assignments
+              View All Schedules
             </Button>
             <Button 
               variant="outline" 

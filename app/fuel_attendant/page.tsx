@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { StatsCard } from "@/components/dashboard/StatsCard";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { StatsCard } from "@/components/ui/StatsCard";
 import { toast } from "react-toastify";
 import { 
   Fuel, 
@@ -28,12 +29,16 @@ import {
   Eye,
   Edit,
   RefreshCw,
-  Droplets
+  Droplets,
+  ChevronUp,
+  ChevronDown,
+  Tags,
+  Info
 } from 'lucide-react';
 import { useAuthStore } from "@/store/authStore";
-import { fuelAPI, assignmentAPI, userServiceRoleAPI, fuelStationAPI } from '@/lib/api';
+import { fuelAPI, userServiceRoleAPI, fuelStationAPI } from '@/lib/api';
 
-export default function FuelAttendantDashboard() {
+export default function EnhancedFuelAttendantDashboard() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
   
@@ -43,13 +48,14 @@ export default function FuelAttendantDashboard() {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [isViewRecordOpen, setIsViewRecordOpen] = useState(false);
   const [userAttendantRole, setUserAttendantRole] = useState(null);
+  const [sortConfig, setSortConfig] = useState({ key: 'timestamp', direction: 'desc' });
 
-  // Form state for creating new fuel record
+  // Enhanced form state for creating new fuel record
   const [fuelForm, setFuelForm] = useState({
     bus_assignment: '',
-    fuel_station: '',
+    fuel_type: 'petrol',
+    fuel_price: '',
     liters: '',
-    price_per_liter: '',
     receipt_number: '',
     notes: ''
   });
@@ -70,16 +76,18 @@ export default function FuelAttendantDashboard() {
     queryFn: () => fuelAPI.getMyRecords(),
   });
 
-  // Fetch bus assignments for dropdown
-  const { data: assignmentsData } = useQuery({
-    queryKey: ['bus-assignments'],
-    queryFn: () => assignmentAPI.getAll(),
+  // Fetch available fuel prices for the user's station
+  const { data: availablePricesData } = useQuery({
+    queryKey: ['available-fuel-prices'],
+    queryFn: () => fuelAPI.getAvailablePrices(),
+    enabled: !!userAttendantRole
   });
 
-  // Fetch fuel stations
-  const { data: fuelStationsData } = useQuery({
-    queryKey: ['fuel-stations'],
-    queryFn: () => fuelStationAPI.getAll(),
+  // Fetch active bus assignments
+  const { data: activeAssignmentsData } = useQuery({
+    queryKey: ['active-assignments-fuel'],
+    queryFn: () => fuelAPI.getActiveAssignments(),
+    enabled: !!userAttendantRole
   });
 
   // Fetch fuel statistics
@@ -118,21 +126,36 @@ export default function FuelAttendantDashboard() {
   }, [userRolesData]);
 
   const fuelRecords = fuelRecordsData?.data.data || [];
-  const assignments = assignmentsData?.data || [];
-  const fuelStations = fuelStationsData?.data || [];
+  const availablePrices = availablePricesData?.data.data?.available_prices || [];
+  const activeAssignments = activeAssignmentsData?.data.data?.active_assignments || [];
+  const stationInfo = availablePricesData?.data.data;
 
-  // Filter active bus assignments only
-  const activeAssignments = assignments.filter(assignment => 
-    assignment.status === 'assigned' || assignment.status === 'in_progress'
-  );
+  // Group available prices by fuel type for easier selection
+  const pricesByFuelType = availablePrices.reduce((acc, price) => {
+    if (!acc[price.fuel_type]) {
+      acc[price.fuel_type] = [];
+    }
+    acc[price.fuel_type].push(price);
+    return acc;
+  }, {});
+
+  // Get available fuel types
+  const availableFuelTypes = Object.keys(pricesByFuelType);
+
+  // Filter available prices based on selected fuel type
+  const filteredPrices = pricesByFuelType[fuelForm.fuel_type] || [];
+
+  // Get selected price details
+  const selectedPrice = availablePrices.find(price => price.id === fuelForm.fuel_price);
 
   // Filter records based on search and date
   const filteredRecords = fuelRecords.filter((record) => {
     const matchesSearch = 
-      record.bus_assignment?.bus?.plate_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.fuel_station?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.bus_plate_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.fuel_station_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.receipt_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+      record.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.fuel_type?.toLowerCase().includes(searchTerm.toLowerCase());
 
     let matchesDate = true;
     if (dateFilter !== 'all') {
@@ -158,6 +181,42 @@ export default function FuelAttendantDashboard() {
     return matchesSearch && matchesDate;
   });
 
+  // Sort records
+  const sortedRecords = [...filteredRecords].sort((a, b) => {
+    let aValue = a[sortConfig.key];
+    let bValue = b[sortConfig.key];
+
+    // Handle nested properties
+    if (sortConfig.key === 'bus_plate_number') {
+      aValue = a.bus_plate_number;
+      bValue = b.bus_plate_number;
+    } else if (sortConfig.key === 'fuel_station_name') {
+      aValue = a.fuel_station_name;
+      bValue = b.fuel_station_name;
+    } else if (sortConfig.key === 'driver_name') {
+      aValue = a.driver_name;
+      bValue = b.driver_name;
+    }
+
+    // Convert to comparable values
+    if (sortConfig.key === 'timestamp') {
+      aValue = new Date(aValue);
+      bValue = new Date(bValue);
+    } else if (['liters', 'price_per_liter', 'total_amount'].includes(sortConfig.key)) {
+      aValue = parseFloat(aValue) || 0;
+      bValue = parseFloat(bValue) || 0;
+    } else {
+      aValue = String(aValue || '').toLowerCase();
+      bValue = String(bValue || '').toLowerCase();
+    }
+
+    if (sortConfig.direction === 'asc') {
+      return aValue > bValue ? 1 : -1;
+    } else {
+      return aValue < bValue ? 1 : -1;
+    }
+  });
+
   // Calculate statistics
   const todayRecords = filteredRecords.filter(record => {
     const today = new Date().toDateString();
@@ -172,9 +231,9 @@ export default function FuelAttendantDashboard() {
   const resetForm = () => {
     setFuelForm({
       bus_assignment: '',
-      fuel_station: '',
+      fuel_type: 'petrol',
+      fuel_price: '',
       liters: '',
-      price_per_liter: '',
       receipt_number: '',
       notes: ''
     });
@@ -186,17 +245,16 @@ export default function FuelAttendantDashboard() {
       return;
     }
 
-    if (!fuelForm.bus_assignment || !fuelForm.fuel_station || !fuelForm.liters || !fuelForm.price_per_liter) {
+    if (!fuelForm.bus_assignment || !fuelForm.fuel_type || !fuelForm.fuel_price || !fuelForm.liters) {
       toast.error('Please fill in all required fields');
       return;
     }
 
     const submitData = {
       bus_assignment: fuelForm.bus_assignment,
-      attendant: userAttendantRole.id,
-      fuel_station: fuelForm.fuel_station,
+      fuel_type: fuelForm.fuel_type,
+      fuel_price: fuelForm.fuel_price,
       liters: parseFloat(fuelForm.liters),
-      price_per_liter: parseFloat(fuelForm.price_per_liter),
       receipt_number: fuelForm.receipt_number || '',
       notes: fuelForm.notes || ''
     };
@@ -206,15 +264,47 @@ export default function FuelAttendantDashboard() {
 
   const calculateTotal = () => {
     const liters = parseFloat(fuelForm.liters) || 0;
-    const pricePerLiter = parseFloat(fuelForm.price_per_liter) || 0;
+    const pricePerLiter = selectedPrice ? parseFloat(selectedPrice.price_per_liter) : 0;
     return liters * pricePerLiter;
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-FR', {
+    return new Intl.NumberFormat('en-RW', {
       style: 'currency',
       currency: 'RWF'
     }).format(amount || 0);
+  };
+
+  const handleSort = (key) => {
+    setSortConfig(prevConfig => ({
+      key,
+      direction: prevConfig.key === key && prevConfig.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const SortableHeader = ({ children, sortKey }) => (
+    <TableHead 
+      className="cursor-pointer hover:bg-gray-50 select-none"
+      onClick={() => handleSort(sortKey)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortConfig.key === sortKey && (
+          sortConfig.direction === 'asc' ? 
+            <ChevronUp className="w-4 h-4" /> : 
+            <ChevronDown className="w-4 h-4" />
+        )}
+      </div>
+    </TableHead>
+  );
+
+  // Handle fuel type change - reset fuel price selection
+  const handleFuelTypeChange = (fuelType) => {
+    setFuelForm(prev => ({
+      ...prev,
+      fuel_type: fuelType,
+      fuel_price: '' // Reset price selection when fuel type changes
+    }));
   };
 
   // Show loading state if user roles are still loading
@@ -264,6 +354,103 @@ export default function FuelAttendantDashboard() {
         </div>
       </div>
 
+      {/* Station Info Card */}
+      {stationInfo && (
+        <Card className="bg-gradient-to-r from-orange-50 to-red-50 border-orange-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-orange-800">
+              <Fuel className="w-5 h-5" />
+              Station Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label className="text-sm font-medium text-orange-700">Station</Label>
+                <p className="text-lg font-semibold text-orange-900">{stationInfo.station_name}</p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-orange-700">Available Fuel Types</Label>
+                <div className="flex gap-1 mt-1">
+                  {availableFuelTypes.map(type => (
+                    <Badge key={type} variant="outline" className="text-xs border-orange-300 text-orange-700">
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-orange-700">Current Prices</Label>
+                <div className="space-y-1">
+                  {availablePrices.slice(0, 2).map(price => (
+                    <div key={price.id} className="text-xs text-orange-800">
+                      {price.fuel_type}: {formatCurrency(price.price_per_liter)}/L
+                    </div>
+                  ))}
+                  {availablePrices.length > 2 && (
+                    <div className="text-xs text-orange-600">+{availablePrices.length - 2} more</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Filters and Search */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="w-5 h-5" />
+            Filters & Search
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="search">Search</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="search"
+                  placeholder="Search by bus, fuel type, receipt..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="date-filter">Date Range</Label>
+              <Select value={dateFilter} onValueChange={setDateFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="week">This Week</SelectItem>
+                  <SelectItem value="month">This Month</SelectItem>
+                  <SelectItem value="all">All Time</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>&nbsp;</Label>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setSearchTerm('');
+                  setDateFilter('today');
+                }}
+                className="w-full"
+              >
+                Clear Filters
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
@@ -309,14 +496,14 @@ export default function FuelAttendantDashboard() {
                   New Fuel Record
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md">
+              <DialogContent className="max-w-lg">
                 <DialogHeader>
                   <DialogTitle>Create Fuel Record</DialogTitle>
                   <DialogDescription>
                     Record a new fuel transaction at {userAttendantRole?.location_name}.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
+                <div className="space-y-4 max-h-96 overflow-y-auto">
                   <div className="space-y-2">
                     <Label htmlFor="bus_assignment">Bus Assignment *</Label>
                     <Select 
@@ -331,10 +518,10 @@ export default function FuelAttendantDashboard() {
                           <SelectItem key={assignment.id} value={assignment.id}>
                             <div className="flex flex-col">
                               <span className="font-medium">
-                                {assignment.plate_number}
+                                {assignment.bus_plate_number}
                               </span>
                               <span className="text-xs text-muted-foreground">
-                                Driver: {assignment.driver_name}
+                                Driver: {assignment.driver_name} - {assignment.driver_phone}
                               </span>
                             </div>
                           </SelectItem>
@@ -342,56 +529,105 @@ export default function FuelAttendantDashboard() {
                       </SelectContent>
                     </Select>
                   </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="fuel_station">Fuel Station *</Label>
+                    <Label htmlFor="fuel_type">Fuel Type *</Label>
                     <Select 
-                      value={fuelForm.fuel_station} 
-                      onValueChange={(value) => setFuelForm(prev => ({...prev, fuel_station: value}))}
+                      value={fuelForm.fuel_type} 
+                      onValueChange={handleFuelTypeChange}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select fuel station" />
+                        <SelectValue placeholder="Select fuel type" />
                       </SelectTrigger>
                       <SelectContent>
-                        {fuelStations.map((station) => (
-                          <SelectItem key={station.id} value={station.id}>
-                            {station.name} - {station.location}
+                        {availableFuelTypes.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            <div className="flex items-center gap-2">
+                              <Tags className="w-4 h-4" />
+                              {type.charAt(0).toUpperCase() + type.slice(1)}
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="liters">Liters *</Label>
-                      <Input
-                        id="liters"
-                        type="number"
-                        step="0.1"
-                        placeholder="0.0"
-                        value={fuelForm.liters}
-                        onChange={(e) => setFuelForm(prev => ({...prev, liters: e.target.value}))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="price_per_liter">Price/Liter (RWF) *</Label>
-                      <Input
-                        id="price_per_liter"
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={fuelForm.price_per_liter}
-                        onChange={(e) => setFuelForm(prev => ({...prev, price_per_liter: e.target.value}))}
-                      />
-                    </div>
-                  </div>
-                  {fuelForm.liters && fuelForm.price_per_liter && (
-                    <div className="bg-orange-50 p-3 rounded-lg">
-                      <Label className="text-sm font-medium">Total Amount</Label>
-                      <p className="text-lg font-bold text-orange-600">
-                        {formatCurrency(calculateTotal())}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="fuel_price">Price Selection *</Label>
+                    <Select 
+                      value={fuelForm.fuel_price} 
+                      onValueChange={(value) => setFuelForm(prev => ({...prev, fuel_price: value}))}
+                      disabled={!fuelForm.fuel_type}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={
+                          !fuelForm.fuel_type 
+                            ? "Select fuel type first" 
+                            : "Select price option"
+                        } />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredPrices.map((price) => (
+                          <SelectItem key={price.id} value={price.id}>
+                            <div className="flex items-center justify-between w-full">
+                              <span>{price.display_name}</span>
+                              <Badge variant="outline" className="ml-2">
+                                Current
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {fuelForm.fuel_type && filteredPrices.length === 0 && (
+                      <p className="text-sm text-orange-600 flex items-center gap-1">
+                        <Info className="w-4 h-4" />
+                        No active prices available for {fuelForm.fuel_type}. Contact admin.
                       </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="liters">Liters *</Label>
+                    <Input
+                      id="liters"
+                      type="number"
+                      step="0.1"
+                      placeholder="0.0"
+                      value={fuelForm.liters}
+                      onChange={(e) => setFuelForm(prev => ({...prev, liters: e.target.value}))}
+                    />
+                  </div>
+
+                  {selectedPrice && fuelForm.liters && (
+                    <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <Label className="text-orange-700">Fuel Type</Label>
+                          <p className="font-medium text-orange-900">
+                            {selectedPrice.fuel_type.charAt(0).toUpperCase() + selectedPrice.fuel_type.slice(1)}
+                          </p>
+                        </div>
+                        <div>
+                          <Label className="text-orange-700">Price per Liter</Label>
+                          <p className="font-medium text-orange-900">
+                            {formatCurrency(selectedPrice.price_per_liter)}
+                          </p>
+                        </div>
+                        <div>
+                          <Label className="text-orange-700">Liters</Label>
+                          <p className="font-medium text-orange-900">{fuelForm.liters} L</p>
+                        </div>
+                        <div>
+                          <Label className="text-orange-700">Total Amount</Label>
+                          <p className="text-lg font-bold text-orange-600">
+                            {formatCurrency(calculateTotal())}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
+
                   <div className="space-y-2">
                     <Label htmlFor="receipt_number">Receipt Number</Label>
                     <Input
@@ -401,6 +637,7 @@ export default function FuelAttendantDashboard() {
                       onChange={(e) => setFuelForm(prev => ({...prev, receipt_number: e.target.value}))}
                     />
                   </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="notes">Notes (Optional)</Label>
                     <Textarea
@@ -418,100 +655,49 @@ export default function FuelAttendantDashboard() {
                   </Button>
                   <Button 
                     onClick={handleCreateRecord} 
-                    disabled={createFuelMutation.isPending || !fuelForm.bus_assignment || !fuelForm.fuel_station || !fuelForm.liters || !fuelForm.price_per_liter}
+                    disabled={
+                      createFuelMutation.isPending || 
+                      !fuelForm.bus_assignment || 
+                      !fuelForm.fuel_type || 
+                      !fuelForm.fuel_price || 
+                      !fuelForm.liters
+                    }
                   >
                     {createFuelMutation.isPending ? 'Creating...' : 'Create Record'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-
-            <Button variant="outline" className="h-20 flex flex-col gap-2">
-              <BarChart3 className="h-6 w-6" />
-              Daily Report
-            </Button>
-            <Button variant="outline" className="h-20 flex flex-col gap-2">
-              <Calendar className="h-6 w-6" />
-              Schedule
-            </Button>
-            <Button variant="outline" className="h-20 flex flex-col gap-2">
-              <Clock className="h-6 w-6" />
-              Time Log
-            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Filters and Search */}
+      {/* Fuel Records Table */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="w-5 h-5" />
-            Filters & Search
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="search">Search</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search"
-                  placeholder="Search by bus, station, receipt..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="date-filter">Date Range</Label>
-              <Select value={dateFilter} onValueChange={setDateFilter}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="week">This Week</SelectItem>
-                  <SelectItem value="month">This Month</SelectItem>
-                  <SelectItem value="all">All Time</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>&nbsp;</Label>
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setSearchTerm('');
-                  setDateFilter('today');
-                }}
-                className="w-full"
-              >
-                Clear Filters
-              </Button>
-            </div>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Fuel className="w-5 h-5" />
+              Fuel Records ({sortedRecords.length})
+            </CardTitle>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setIsCreateRecordOpen(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Record
+            </Button>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Fuel Records */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Fuel className="w-5 h-5" />
-            Fuel Records
-          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {recordsLoading ? (
             <div className="flex items-center justify-center py-8">
               <RefreshCw className="w-6 h-6 animate-spin mr-2" />
               Loading records...
             </div>
-          ) : filteredRecords.length === 0 ? (
-            <div className="text-center py-8">
+          ) : sortedRecords.length === 0 ? (
+            <div className="text-center py-8 px-6">
               <Fuel className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-lg font-medium">No fuel records found</p>
               <p className="text-sm text-muted-foreground mb-4">
@@ -526,88 +712,93 @@ export default function FuelAttendantDashboard() {
               </Button>
             </div>
           ) : (
-            <div className="space-y-4">
-              {filteredRecords.map((record) => (
-                <Card key={record.id} className="border-l-4 border-l-orange-500">
-                  <CardContent className="p-6">
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                      {/* Bus Info */}
-                      <div>
-                        <h4 className="font-semibold mb-2 flex items-center gap-2">
-                          <Bus className="w-4 h-4" />
-                          Bus Details
-                        </h4>
-                        <div className="space-y-1 text-sm">
-                          <p><span className="text-muted-foreground">Bus:</span> {record.bus_plate_number}</p>
-                          <p><span className="text-muted-foreground">Driver:</span> {record.driver_name}</p>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <SortableHeader sortKey="timestamp">Date & Time</SortableHeader>
+                    <SortableHeader sortKey="bus_plate_number">Bus</SortableHeader>
+                    <SortableHeader sortKey="driver_name">Driver</SortableHeader>
+                    <SortableHeader sortKey="fuel_type">Fuel Type</SortableHeader>
+                    <SortableHeader sortKey="liters">Liters</SortableHeader>
+                    <SortableHeader sortKey="price_per_liter">Price/L</SortableHeader>
+                    <SortableHeader sortKey="total_amount">Total</SortableHeader>
+                    <TableHead>Receipt</TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedRecords.map((record) => (
+                    <TableRow key={record.id} className="hover:bg-gray-50">
+                      <TableCell className="font-medium">
+                        <div className="flex flex-col">
+                          <span className="text-sm">
+                            {new Date(record.timestamp).toLocaleDateString()}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(record.timestamp).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
                         </div>
-                      </div>
-
-                      {/* Fuel Info */}
-                      <div>
-                        <h4 className="font-semibold mb-2 flex items-center gap-2">
-                          <Fuel className="w-4 h-4" />
-                          Fuel Details
-                        </h4>
-                        <div className="space-y-1 text-sm">
-                          <p><span className="text-muted-foreground">Station:</span> {record.fuel_station_name}</p>
-                          <p><span className="text-muted-foreground">Liters:</span> {record.liters} L</p>
-                          <p><span className="text-muted-foreground">Price/L:</span> {formatCurrency(record.price_per_liter)}</p>
-                          <p><span className="text-muted-foreground">Total:</span> 
-                            <span className="font-medium text-green-600 ml-1">{formatCurrency(record.total_amount)}</span>
-                          </p>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Bus className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-medium">{record.bus_plate_number}</span>
                         </div>
-                      </div>
-
-                      {/* Time Info */}
-                      <div>
-                        <h4 className="font-semibold mb-2 flex items-center gap-2">
-                          <Clock className="w-4 h-4" />
-                          Transaction Info
-                        </h4>
-                        <div className="space-y-1 text-sm">
-                          <p><span className="text-muted-foreground">Date:</span> {new Date(record.timestamp).toLocaleDateString()}</p>
-                          <p><span className="text-muted-foreground">Time:</span> {new Date(record.timestamp).toLocaleTimeString()}</p>
-                          {record.receipt_number && (
-                            <p><span className="text-muted-foreground">Receipt:</span> 
-                              <Badge variant="outline" className="ml-1">{record.receipt_number}</Badge>
-                            </p>
-                          )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm font-medium">{record.driver_name}</span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize">
+                          {record.fuel_type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Droplets className="w-4 h-4 text-blue-500" />
+                          <span className="font-medium">{record.liters}L</span>
                         </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div>
-                        <h4 className="font-semibold mb-2">Actions</h4>
-                        <div className="flex gap-2">
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm">{formatCurrency(record.price_per_liter)}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-semibold text-green-600">
+                          {formatCurrency(record.total_amount)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {record.receipt_number ? (
+                          <Badge variant="outline" className="text-xs">
+                            {record.receipt_number}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
                           <Button 
-                            variant="outline" 
+                            variant="ghost" 
                             size="sm"
                             onClick={() => {
                               setSelectedRecord(record);
                               setIsViewRecordOpen(true);
                             }}
+                            className="h-8 w-8 p-0"
                           >
-                            <Eye className="w-4 h-4 mr-1" />
-                            View
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            <Edit className="w-4 h-4 mr-1" />
-                            Edit
+                            <Eye className="w-4 h-4" />
                           </Button>
                         </div>
-                      </div>
-                    </div>
-
-                    {/* Notes */}
-                    {record.notes && (
-                      <div className="mt-4 pt-4 border-t">
-                        <p className="text-sm"><span className="text-muted-foreground">Notes:</span> {record.notes}</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
@@ -634,8 +825,10 @@ export default function FuelAttendantDashboard() {
                   <p className="text-sm">{selectedRecord.driver_name}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Fuel Station</Label>
-                  <p className="text-sm">{selectedRecord.fuel_station_name}</p>
+                  <Label className="text-sm font-medium">Fuel Type</Label>
+                  <Badge variant="outline" className="capitalize text-xs">
+                    {selectedRecord.fuel_type}
+                  </Badge>
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Liters</Label>
@@ -673,10 +866,6 @@ export default function FuelAttendantDashboard() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsViewRecordOpen(false)}>
               Close
-            </Button>
-            <Button>
-              <Edit className="w-4 h-4 mr-1" />
-              Edit Record
             </Button>
           </DialogFooter>
         </DialogContent>

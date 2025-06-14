@@ -14,7 +14,6 @@ import {
   TrendingUp,
   LogOut,
   Building2,
-  Activity,
   Fuel,
   Droplets,
   Calendar,
@@ -27,12 +26,10 @@ import { useEffect } from "react";
 
 const adminNavItems = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { name: "System Overview", href: "/admin/system", icon: Activity },
-  { name: "Fleet Management", href: "/admin/fleet", icon: Bus },
+  { name: "Bus Management", href: "/admin/fleet", icon: Bus },
   { name: "User Management", href: "/admin/users", icon: Users },
   { name: "Reports", href: "/admin/report", icon: FileText },
   { name: "Company Management", href: "/admin/companies", icon: Building2 },
-  { name: "Maintenance", href: "/admin/maintenance", icon: Wrench },
   { name: "Inventory", href: "/admin/inventory", icon: Package },
   { name: "Garage", href: "/admin/garage", icon: TrendingUp },
   { name: "Car washes", href: "/admin/car-wash-stations", icon: Droplets },
@@ -43,7 +40,7 @@ const adminNavItems = [
 
 const conductorNavItems = [
   { name: "Dashboard", href: "/conductor", icon: LayoutDashboard },
-  { name: "My Assignments", href: "/conductor/assignments", icon: Bus },
+  { name: "My Schedules", href: "/conductor/assignments", icon: Bus },
   { name: "Reports", href: "/conductor/report", icon: FileText },
 ];
 
@@ -78,7 +75,44 @@ export function Sidebar() {
 
   useEffect(() => {
     initializeAuth();
-  }, [initializeAuth]);
+    const redirectToDashboard = (userData: any) => {
+    const isAdmin = userData.user_roles?.includes('admin') || 
+                   userData.user_roles?.includes('Company Admin') ||
+                   userData.is_superuser;
+    
+    if (isAdmin) {
+      router.push('/admin');
+      return;
+    }
+
+    const userRoles = userData.roles || [];
+    
+    // Check for specific attendant roles
+    const isFuelAttendant = userRoles.some(role => role.name === 'Fuel Attendant');
+    const isCarWashAttendant = userRoles.some(role => role.name === 'Car Wash Attendant');
+    const isGarageAttendant = userRoles.some(role => role.name === 'maintenance');
+    const isConductor = userRoles.some(role => role.name === "conductor");
+
+    
+    if (isFuelAttendant) {
+      router.push('/fuel_attendant');
+    } else if (isCarWashAttendant) {
+      router.push('/car_wash');
+    } else if (isGarageAttendant) {
+      router.push('/garage/maintenance');
+    } else if (isConductor) {
+      router.push('/conductor');
+    } else {
+      router.push('/');
+    }
+    
+
+  
+  };
+    if (user) {
+      redirectToDashboard(user);
+    }
+  }, [initializeAuth,router,user]);
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -88,7 +122,6 @@ export function Sidebar() {
     }
   }, [user, router]);
   
-  // Safe check for user roles with proper fallbacks
   const userRoles = Array.isArray(user?.roles) ? user.roles : [];
   const userRoleNames = Array.isArray(user?.user_roles) ? user.user_roles : [];
 
@@ -99,11 +132,11 @@ export function Sidebar() {
     role === 'Company Admin'
   ) || user?.is_superuser === true;
 
-  const isFuelAttendant = userRoleNames.includes('Fuel Attendant');
-  const isCarWashAttendant = userRoleNames.includes('Car Wash Attendant');
-  const isGarageAttendant = userRoleNames.includes('Garage Attendant') || 
-                           userRoleNames.includes('Maintenance Attendant');
-  const isConductor = userRoleNames.includes('Conductor');
+    // Check for specific attendant roles
+    const isFuelAttendant = userRoles.some(role => role.name === 'Fuel Attendant');
+    const isCarWashAttendant = userRoles.some(role => role.name === 'Car Wash Attendant');
+    const isGarageAttendant = userRoles.some(role => role.name === 'maintenance');
+    const isConductor = userRoles.some(role => role.name === "conductor");
 
   // Determine navigation items based on role priority
   let navItems = conductorNavItems;
